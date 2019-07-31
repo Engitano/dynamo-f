@@ -1,4 +1,4 @@
-# Dynamo F - Purely Functional, Typesafe, Non-Blocking Dynamo DB Acess
+# Dynamo F - Purely Functional, Typesafe, Non-Blocking DynamoDB Access
 
 ### Nowhere near production ready. Don't use.
 
