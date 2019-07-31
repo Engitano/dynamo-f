@@ -37,22 +37,27 @@ object CrudSpec {
 
 class CrudSpec extends WordSpec with Matchers {
     import com.engitano.dynamof.formats.DynamoValue._
+
+    val lowLevelClient = DynamoDbAsyncClient.builder().endpointOverride(new URI("http://localhost:8000")).region(Region.AP_SOUTHEAST_2).build()
+
     "DynamoF" should {
         "CRUD items" in {
-            val lowLevelClient = DynamoDbAsyncClient.builder().endpointOverride(new URI("http://localhost:8000")).region(Region.AP_SOUTHEAST_2).build()
             val expectedUser = User(nes"1", nes"Fred")
             val table = Table[User]("users", 'id)
             val create = table.create(1, 1)
             val put = table.put(expectedUser)
             val get = table.get(nes"1")
+            val del = table.delete(nes"1")
             val client = DynamoFClient[IO](lowLevelClient)
             val program = for {
                 _ <- client.createTable(create)
                 _ <- client.putItem(put)
                 g <- client.getItem(get)
-            } yield g
+                _ <- client.deleteItem(del)
+                h <- client.getItem(get)
+            } yield (g, h)
             
-            program.unsafeRunSync shouldBe expectedUser
+            program.unsafeRunSync shouldBe (Some(expectedUser), None)
         }
     }
 }

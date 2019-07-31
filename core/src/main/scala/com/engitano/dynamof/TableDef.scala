@@ -23,8 +23,10 @@ package com.engitano.dynamof
 
 import com.engitano.dynamof.formats._
 import com.engitano.dynamof.formats.ToDynamoValue
+import cats.instances.option._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.traverse._
 import shapeless.labelled._
 import shapeless.ops.record.Selector
 import shapeless.{=:!=, HList, LabelledGeneric, Witness, Generic, ::, HNil}
@@ -35,7 +37,8 @@ import software.amazon.awssdk.services.dynamodb.model.{
   CreateTableRequest => JCreateTableRequest,
   GetItemRequest => JGetItemRequest,
   AttributeDefinition => JAttributeDefinition,
-  ProvisionedThroughput => JProvisionedThroughput
+  ProvisionedThroughput => JProvisionedThroughput,
+  DeleteItemRequest => JDeleteItemRequest
 }
 
 import scala.jdk.CollectionConverters._
@@ -49,6 +52,7 @@ case class CreateTableRequest(name: String, pk: PrimaryKey, readCapacity: Long, 
 case class GetItemRequest[A](table: String, key: DynamoValue.M)
 case class QueryRequest[A](table: String, key: DynamoValue.M)
 case class PutItemRequest(table: String, document: DynamoValue.M)
+case class DeleteItemRequest(table: String, key: DynamoValue.M)
 
 sealed trait ToKey[A] {
   def toKey(a: A): DynamoValue.M
@@ -105,6 +109,8 @@ sealed trait Table[A] {
   def query[HK](h: HK)(implicit k: KeyValue <:< (HK, _), toKey: ToKey[(String, HK)], eq: KeyId <:< (String, _)) =
     QueryRequest[A](name, toKey.toKey(eq(key)._1 -> h))
   def put(a: A)(implicit tdv: ToDynamoMap[A]) = PutItemRequest(this.name, tdv.to(a))
+  def delete(h: KeyValue)(implicit toKey: ToKey[(KeyId, KeyValue)]) =
+    DeleteItemRequest(name, toKey.toKey((key, h)))
 
 }
 
@@ -152,7 +158,8 @@ trait DynamoFClient[F[_]] {
 
   def createTable(req: CreateTableRequest): F[Unit]
   def putItem(req: PutItemRequest): F[Unit]
-  def getItem[A: Deserializer](req: GetItemRequest[A]): F[A]
+  def getItem[A: Deserializer](req: GetItemRequest[A]): F[Option[A]]
+  def deleteItem(req: DeleteItemRequest): F[Unit]
   def query[A: Deserializer](req: QueryRequest[A]): F[Seq[A]]
 
 }
@@ -166,15 +173,21 @@ object DynamoFClient {
         .lift[F]
         .as(())
 
-    def getItem[A](req: GetItemRequest[A])(implicit fdv: FromDynamoValue[F, A]): F[A] =
+    def getItem[A](req: GetItemRequest[A])(implicit fdv: FromDynamoValue[F, A]): F[Option[A]] =
       client
         .getItem(JavaRequests.to(req))
         .lift[F]
-        .flatMap(r => fdv.from(DynamoValue.M.parse(r.item().asScala.toMap)))
+        .flatMap(r => if (r.item().isEmpty()) F.pure(None) else fdv.from(DynamoValue.M.parse(r.item.asScala.toMap)).map(i => Some(i)))
 
     def putItem(req: PutItemRequest): F[Unit] =
       client
         .putItem(JavaRequests.to(req))
+        .lift[F]
+        .as(())
+
+    def deleteItem(req: DeleteItemRequest): F[Unit] =
+      client
+        .deleteItem(JavaRequests.to(req))
         .lift[F]
         .as(())
 
@@ -201,6 +214,13 @@ object JavaRequests {
 
   def to(req: GetItemRequest[_]): JGetItemRequest =
     JGetItemRequest
+      .builder()
+      .tableName(req.table)
+      .key(req.key.toAttributeValue.m())
+      .build()
+
+  def to(req: DeleteItemRequest): JDeleteItemRequest =
+    JDeleteItemRequest
       .builder()
       .tableName(req.table)
       .key(req.key.toAttributeValue.m())
