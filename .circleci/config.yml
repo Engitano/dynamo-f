@@ -1,0 +1,53 @@
+version: 2
+jobs:
+  build_213:
+    docker:
+      - image: hseeberger/scala-sbt:8u212_1.2.8_2.13.0
+ 
+    working_directory: ~/dynamo_f
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - ivy
+      - run:
+          command: |
+            sbt ";++ 2.13.0;coverage;test;it:test;coverageReport;coveralls;"
+      - save_cache:
+          key: ivy
+          paths:
+            - "~/.ivy2/cache"
+            - "~/.sbt"
+            - "~/.m2"
+  build_212:
+    docker:
+      - image: hseeberger/scala-sbt:8u212_1.2.8_2.12.8
+    working_directory: ~/dynamo_f
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - ivy
+      - run:
+          command: |
+            sbt ";+ 2.12.8;coverage;test;it:test;coverageReport;coveralls;"
+      - save_cache:
+          key: ivy
+          paths:
+            - "~/.ivy2/cache"
+            - "~/.sbt"
+            - "~/.m2"
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build_213:
+          context: release
+          filters:
+            tags:
+              ignore: /.*/
+      - build_212:
+          context: release
+          filters:
+            tags:
+              ignore: /.*/
