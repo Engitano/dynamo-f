@@ -19,6 +19,7 @@ trait ToDynamoValue[A] {
 object ToDynamoMap {
   def apply[A](implicit tdm: ToDynamoMap[A]) = tdm
 }
+
 trait ToDynamoMap[A] {
   def to(a: A): DynamoValue.M
 }

@@ -10,7 +10,7 @@ object DynamoFTypeSpec {
 
 class DynamoFTypeSpec extends WordSpec with Matchers {
 
-  import ToKey._
+  import syntax.all._
   import formats.auto._
   import formats._
   import DynamoValue._
@@ -30,11 +30,11 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
       req shouldBe GetItemRequest("TestTable", M(Map("id" -> S("3"), "dob" -> N("123456789"))))
     }
     
-    "Return a QueryRequest when fetching by hash and range key" in {
+    "Return a ListItemsRequest when fetching by hash and range key" in {
       val t = Table[MyDto]("TestTable", 'id, 'dob)
 
-      val req = t.query(nes"3")
-      req shouldBe QueryRequest("TestTable", M(Map("id" -> S("3"))))
+      val req = t.list(nes"3")
+      req shouldBe ListItemsRequest("TestTable", "id" -> S("3"), None)
     }
   }
 }

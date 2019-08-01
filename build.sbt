@@ -57,4 +57,4 @@ lazy val `dynamo-f` = (project in file("core"))
   )
   .dependsOn(`dynamo-f-formats`)
 
-addCommandAlias("fullBuild", ";clean;coverage;test;it:test;coverageReport")
+addCommandAlias("fullBuild", ";project root;clean;coverage;test;it:test;coverageReport")

@@ -161,6 +161,14 @@ trait AutoToAttributeValue {
 
   import DynamoValue._
 
+  implicit def toDynamoMapForMap[V](implicit tmv: ToDynamoValue[V]) = new ToDynamoMap[Map[String, V]] {
+    def to(av: Map[String, V]) = M(av.mapValues(tmv.to).toMap)
+  }
+
+  implicit def toDynamoMapForTuple[V](implicit tmv: ToDynamoValue[V]) = new ToDynamoMap[(String, V)] {
+    def to(av: (String, V)) = toDynamoMapForMap[V].to(Map(av))
+  }
+
   implicit def toDynamoMapForHNil = new ToDynamoMap[HNil] {
     def to(av: HNil) = M(Map())
   }
