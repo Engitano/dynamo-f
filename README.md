@@ -1,16 +1,16 @@
 # Dynamo F - Purely Functional, Typesafe, Non-Blocking DynamoDB Access
 
-### Nowhere near production ready. Don't use.
+#### !Nowhere near production ready. Don't use. You have been warned!
 
 ### BYO Effect Type.
 Without needing 'Free' interpreters
 
 ### Strongly Typed.
-Using the `com.engitano.dynamof.syntax.all._` imports the DynamoDB domain rules modelled in the types.
+Using the types in `com.engitano.dynamof.syntax.all._`, compliance to the the DynamoDB domain rules are checked by the compiler.
 i.e
 * Can only query tables with a compound key.
-* Query keyExpression applies only to range key
-* Filter expression cannot include Key fields 
+* Query key expression applies only to range key
+* Query filter expression cannot include Key fields 
 
 ### Non Blocking
 Uses Amazon SDK V2 under the hood with non-blocking goodness.
