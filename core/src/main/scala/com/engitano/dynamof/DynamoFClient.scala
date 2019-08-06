@@ -10,6 +10,7 @@ import cats.effect.Async
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.jdk.CollectionConverters._
+import software.amazon.awssdk.services.dynamodb.model.DeleteTableRequest
 
 trait DynamoFClient[F[_]] {
   type Serializer[A]   = ToDynamoValue[A]
@@ -21,6 +22,7 @@ trait DynamoFClient[F[_]] {
   def deleteItem(req: DeleteItemRequest): F[Unit]
   def listItems[A: Deserializer](req: ListItemsRequest[A]): F[QueryResponse[A]]
   def queryItems[A](req: QueryRequest[A])(implicit fdv: FromDynamoValue[F, A]): F[QueryResponse[A]]
+  def deleteTable(name: String): F[Unit]
 }
 
 object DynamoFClient {
@@ -29,6 +31,12 @@ object DynamoFClient {
     def createTable(req: CreateTableRequest): F[Unit] =
       client
         .createTable(JavaRequests.to(req))
+        .lift[F]
+        .as(())
+
+    def deleteTable(name: String): F[Unit] =
+      client
+        .deleteTable(DeleteTableRequest.builder().tableName(name).build())
         .lift[F]
         .as(())
 
@@ -61,9 +69,10 @@ object DynamoFClient {
         .lift[F]
         .map(r => (r.items().asScala.map(v => DynamoValue.M.parse(v.asScala.toMap)), r.lastEvaluatedKey()))
         .flatMap(
-          f => 
-          f._1.toList.traverse(p => fdv.from(p))
-            .map(r => QueryResponse(r, if (f._2.isEmpty()) None else Some(DynamoValue.M.parse(f._2.asScala.toMap))))
+          f =>
+            f._1.toList
+              .traverse(p => fdv.from(p))
+              .map(r => QueryResponse(r, if (f._2.isEmpty()) None else Some(DynamoValue.M.parse(f._2.asScala.toMap))))
         )
 
     def queryItems[A](req: QueryRequest[A])(implicit fdv: FromDynamoValue[F, A]): F[QueryResponse[A]] =
@@ -72,9 +81,10 @@ object DynamoFClient {
         .lift[F]
         .map(r => (r.items().asScala.map(v => DynamoValue.M.parse(v.asScala.toMap)), r.lastEvaluatedKey()))
         .flatMap(
-          f => 
-          f._1.toList.traverse(p => fdv.from(p))
-            .map(r => QueryResponse(r, if (f._2.isEmpty()) None else Some(DynamoValue.M.parse(f._2.asScala.toMap))))
+          f =>
+            f._1.toList
+              .traverse(p => fdv.from(p))
+              .map(r => QueryResponse(r, if (f._2.isEmpty()) None else Some(DynamoValue.M.parse(f._2.asScala.toMap))))
         )
   }
 }

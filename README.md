@@ -2,6 +2,19 @@
 
 ### Nowhere near production ready. Don't use.
 
+### BYO Effect Type.
+Without needing 'Free' interpreters
+
+### Strongly Typed.
+Using the `com.engitano.dynamof.syntax.all._` imports the DynamoDB domain rules modelled in the types.
+i.e
+* Can only query tables with a compound key.
+* Query keyExpression applies only to range key
+* Filter expression cannot include Key fields 
+
+### Non Blocking
+Uses Amazon SDK V2 under the hood with non-blocking goodness.
+
 #### Usage
 
 ```scala
@@ -70,23 +83,26 @@ class CrudSpec extends WordSpec with Matchers {
     }
 
     "Query items" in {
-      import com.engitano.dynamof.syntax._
-      val table         = Table[User]("users3", 'id, 'name)
-      val expectedUser1 = User(nes"1", nes"Fred")
-      val expectedUser2 = User(nes"1", nes"Joe")
+      val table         = Table[User]("users", 'id, 'name)
+      val expectedUser1 = User(nes"1", nes"Fred", 25, 180)
+      val expectedUser2 = User(nes"1", nes"Michael", 32, 152)
+      val expectedUser3 = User(nes"1", nes"Nick", 19, 180)
+      val expectedUser4 = User(nes"1", nes"Zoe", 30, 180)
       val putFred       = table.put(expectedUser1)
-      val putJoe        = table.put(expectedUser2)
-      val findFred      = table.query(nes"1", btwn(nes"Eddie", nes"Gary"))
+      val putFreddy     = table.put(expectedUser2)
+      val putFreddo     = table.put(expectedUser3)
+      val putJoe        = table.put(expectedUser4)
+      val findFred      = table.query(nes"1", beginsWith(nes"Fre"), 'age > 20 and 'heightCms > 152, limit = Some(5), startAt = Some((nes"1", nes"Fre")))
 
-      val program = for {
-        _     <- client.createTable(table.create(1, 1))
-        _     <- (client.putItem(putFred), client.putItem(putJoe)).tupled
-        items <- client.queryItems(findFred)
-      } yield items
+      val program = client.useTable(table.create(1, 1)) {
+        for {
+          _     <- (client.putItem(putFred), client.putItem(putFreddy),client.putItem(putFreddo), client.putItem(putJoe)).tupled
+          items <- client.queryItems(findFred)
+        } yield items
+      }
 
       program.unsafeRunSync() shouldBe QueryResponse(List(expectedUser1), None)
     }
-  }
 }
 
 ```

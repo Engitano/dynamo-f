@@ -1,6 +1,9 @@
 package com.engitano.dynamof
 
 import cats.syntax.option._
+import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.instances.option._
 import software.amazon.awssdk.services.dynamodb.model.{
   PutItemRequest => JPutItemRequest,
   CreateTableRequest => JCreateTableRequest,
@@ -13,8 +16,13 @@ import software.amazon.awssdk.services.dynamodb.model.{
   KeyType
 }
 import scala.jdk.CollectionConverters._
-import cats.data.State
+import cats.data.StateT
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import com.engitano.dynamof.formats.DynamoValue
+import cats.data.OptionT
+import cats.data.State
+import cats.arrow.FunctionK
+import cats.Eval
 
 private object JavaRequests {
   def to(req: PutItemRequest): JPutItemRequest =
@@ -58,38 +66,25 @@ private object JavaRequests {
 
   def to(req: QueryRequest[_]): JQueryRequest = {
     val hashKeyAlias = "#hashKey"
-    val rangeKeyAlias        = "#rangeKey"
+    val builder      = JQueryRequest.builder().tableName(req.table)
+    val valueIndex   = 0
+    val hashKeyExpr  = s"$hashKeyAlias = :$valueIndex"
+    val valueAliases = Map(":0" -> req.key._2.toAttributeValue)
+    val nameAliases  = Map(hashKeyAlias -> req.key._1)
 
-    def toAlias(i: Int) = s":$i"
-    def to(req: Predicate, valueExpressions: Map[String, AttributeValue], ix: Int): (String, String, Map[String, AttributeValue]) = req match {
-      case LessThan(attribute, value)            => (attribute, s"$rangeKeyAlias < ${toAlias(ix)}", valueExpressions + (toAlias(ix)  -> value.toAttributeValue))
-      case LessThanOrEquals(attribute, value)    => (attribute, s"$rangeKeyAlias <= ${toAlias(ix)}", valueExpressions + (toAlias(ix) -> value.toAttributeValue))
-      case Equals(attribute, value)              => (attribute, s"$rangeKeyAlias = ${toAlias(ix)}", valueExpressions + (toAlias(ix) -> value.toAttributeValue))
-      case GreaterThanOrEquals(attribute, value) => (attribute, s"$rangeKeyAlias >= ${toAlias(ix)}", valueExpressions + (toAlias(ix) -> value.toAttributeValue))
-      case GreaterThan(attribute, value)         => (attribute, s"$rangeKeyAlias > ${toAlias(ix)}", valueExpressions + (toAlias(ix)  -> value.toAttributeValue))
-      case Between(attribute, lb, ub) =>
-        (
-          attribute,
-          s"$rangeKeyAlias BETWEEN ${toAlias(ix)} AND ${toAlias(ix + 1)}",
-          valueExpressions + (toAlias(ix) -> lb.toAttributeValue) + (toAlias(ix + 1) -> ub.toAttributeValue)
-        )
-      case And(lhs, rhs) => 
-        val l = to(lhs, valueExpressions, ix) 
-        val r = to(rhs, valueExpressions, ix + 1)
-        (l._1, s"${l._2} AND ${r._2}", l._3 ++ r._3)        
-    }
-    val builder = JQueryRequest.builder().tableName(req.table)
-    val valueIndex = 0
-    val hashKeyExpr = s"$hashKeyAlias = :$valueIndex"
-    val valueAliases = Map(":0" -> req.key._2.toAttributeValue) 
-    val filterExp = to(req.queryExpression, valueAliases, valueIndex + 1)
-    val nameAliases = Map(hashKeyAlias -> req.key._1, rangeKeyAlias -> filterExp._1)
-    builder
-      .keyConditionExpression(s"$hashKeyExpr AND ${filterExp._2}")
-      .expressionAttributeValues(filterExp._3.asJava)
-      .expressionAttributeNames(nameAliases.asJava)
-      .build()
+    val ((names, vals, v), query)            = predicateToFilter(req.queryExpression).run((nameAliases, valueAliases, 1)).value
+    val ((namesWithF, valsWithF, _), filter) = req.filterExpression.fold(((names, vals, v), ""))(fe => predicateToFilter(fe).run((names, vals, v)).value)
+
+    val initBuilder = builder
+      .keyConditionExpression(s"$hashKeyExpr AND $query")
+      .expressionAttributeValues(valsWithF.asJava)
+      .expressionAttributeNames(namesWithF.asJava)    
+
+    val withFilter = if(filter.isEmpty()) initBuilder else initBuilder.filterExpression(filter)
     
+    val withStartKey = req.startAt.fold(withFilter)(sa => withFilter.exclusiveStartKey(sa.toAttributeValue.m()))
+
+    req.limit.fold(withStartKey)(sk => withStartKey.limit(sk)).build()
   }
 
   def toAttributeDefinition(attr: AttributeDefinition) = attr match {
@@ -109,5 +104,63 @@ private object JavaRequests {
         buildKeySchemaElement(hk, KeyType.HASH),
         buildKeySchemaElement(rk, KeyType.RANGE)
       )
+  }
+
+  def predicateToFilter(p: Predicate): State[(Map[String, String], Map[String, AttributeValue], Int), String] = State {
+    case (names, values, variableCount) =>
+      p match {
+        case LessThan(attribute, value) =>
+          val valueAlias = s":var_$variableCount"
+          val nameAlias  = s"#attr__${attribute}"
+          val newNames   = names + (nameAlias -> attribute)
+          val newVals    = values + (valueAlias -> value.toAttributeValue)
+          ((newNames, newVals, variableCount + 1), s"$nameAlias < $valueAlias")
+        case LessThanOrEquals(attribute, value) =>
+          val valueAlias = s":var_$variableCount"
+          val nameAlias  = s"#attr__${attribute}"
+          val newNames   = names + (nameAlias -> attribute)
+          val newVals    = values + (valueAlias -> value.toAttributeValue)
+          ((newNames, newVals, variableCount + 1), s"$nameAlias <= $valueAlias")
+        case Equals(attribute, value) =>
+          val valueAlias = s":var_$variableCount"
+          val nameAlias  = s"#attr__${attribute}"
+          val newNames   = names + (nameAlias -> attribute)
+          val newVals    = values + (valueAlias -> value.toAttributeValue)
+          ((newNames, newVals, variableCount + 1), s"$nameAlias = $valueAlias")
+        case GreaterThan(attribute, value) =>
+          val valueAlias = s":var_$variableCount"
+          val nameAlias  = s"#attr__${attribute}"
+          val newNames   = names + (nameAlias -> attribute)
+          val newVals    = values + (valueAlias -> value.toAttributeValue)
+          ((newNames, newVals, variableCount + 1), s"$nameAlias > $valueAlias")
+        case GreaterThanOrEquals(attribute, value) =>
+          val valueAlias = s":var_$variableCount"
+          val nameAlias  = s"#attr__${attribute}"
+          val newNames   = names + (nameAlias -> attribute)
+          val newVals    = values + (valueAlias -> value.toAttributeValue)
+          ((newNames, newVals, variableCount + 1), s"$nameAlias >= $valueAlias")
+        case BeginsWith(attribute, value) =>
+          val valueAlias = s":var_$variableCount"
+          val nameAlias  = s"#attr__${attribute}"
+          val newNames   = names + (nameAlias -> attribute)
+          val newVals    = values + (valueAlias -> value.toAttributeValue)
+          ((newNames, newVals, variableCount + 1), s"begins_with ($nameAlias, $valueAlias)")
+        case Between(attribute, lbValue, ubValue) =>
+          val lbAlias   = s":var_$variableCount"
+          val ubAlias   = s":var_${variableCount + 1}"
+          val nameAlias = s"#attr__${attribute}"
+          val newNames  = names + (nameAlias -> attribute)
+          val newVals   = values + (lbAlias -> lbValue.toAttributeValue) + (ubAlias -> ubValue.toAttributeValue)
+          ((newNames, newVals, variableCount + 2), s"$nameAlias BETWEEN $lbAlias AND $ubAlias")
+        case And(lhs, rhs) =>
+          val lhsExp = predicateToFilter(lhs)
+          val rhsExp = predicateToFilter(rhs)
+          val res    = (lhsExp, rhsExp).mapN((p1, p2) => s"${p1} AND ${p2}")
+          res.run((names, values, variableCount)).value
+      }
+  }
+
+  object NatEvalOpt extends FunctionK[Eval, Option] {
+    def apply[A](fa: Eval[A]): Option[A] = fa.value.some
   }
 }

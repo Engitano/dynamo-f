@@ -12,13 +12,17 @@ jobs:
             - ivy
       - run:
           command: |
-            sbt ";++ 2.13.0;coverage;test;it:test;coverageReport;coveralls;"
+            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ 2.13.0;coverage;test;it:test;coverageAggregate;coveralls;"
       - save_cache:
           key: ivy
           paths:
             - "~/.ivy2/cache"
             - "~/.sbt"
             - "~/.m2"
+      - persist_to_workspace:
+          root: ~/dynamo_f
+          paths:
+            - ./*
   build_212:
     docker:
       - image: hseeberger/scala-sbt:8u212_1.2.8_2.12.8
@@ -30,7 +34,31 @@ jobs:
             - ivy
       - run:
           command: |
-            sbt ";+ 2.12.8;coverage;test;it:test;coverageReport;coveralls;"
+            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ 2.12.8;coverage;test;it:test;coverageAggregate;coveralls;"
+      - save_cache:
+          key: ivy
+          paths:
+            - "~/.ivy2/cache"
+            - "~/.sbt"
+            - "~/.m2"
+      - persist_to_workspace:
+          root: ~/dynamo_f
+          paths:
+            - ./core/target/scala-2.12/*
+            - ./formats/target/scala-2.12/*
+  release:
+    docker:
+      - image: hseeberger/scala-sbt:8u212_1.2.8_2.13.0
+    working_directory: ~/dynamo_f
+    steps:
+      - attach_workspace:
+          at: ~/dynamo_f
+      - restore_cache:
+          keys:
+            - ivy
+      - run:
+          command: |
+            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ publish"
       - save_cache:
           key: ivy
           paths:
@@ -51,3 +79,12 @@ workflows:
           filters:
             tags:
               ignore: /.*/
+      - release:
+          context: release
+          requires:
+            - build_213
+            - build_212
+          filters:
+            branches:
+               only:
+                 - master

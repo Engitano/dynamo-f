@@ -2,27 +2,19 @@ package com.engitano.dynamof.formats
 import cats.Applicative
 import cats.ApplicativeError
 import cats.implicits._
-import software.amazon.awssdk.core.SdkBytes
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import java.nio.ByteBuffer
-import java.{util => ju}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAccessor
 import scala.util.Try
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import shapeless.HList
-import shapeless.LabelledGeneric
 import shapeless._
 import shapeless.labelled._
-import cats.Functor
 import eu.timepit.refined.collection._
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
 
-import scala.jdk.CollectionConverters._
-import cats.FlatMap
-import cats.Monad
 import cats.MonadError
 import shapeless.Lazy
 import cats.CommutativeApplicative
@@ -82,9 +74,9 @@ trait LowPriorityToAttributeValue {
       }
     }
 
-  implicit def toDynamoValueForSeq[T, C[_] <: Seq[T]](implicit tav: ToDynamoValue[T]): ToDynamoValue[C[T]] =
-    new ToDynamoValue[C[T]] {
-      def to(b: C[T]) = L(b.map(t => tav.to(t)).toList)
+  implicit def toDynamoValueForSeq[T](implicit tav: ToDynamoValue[T]): ToDynamoValue[Seq[T]] =
+    new ToDynamoValue[Seq[T]] {
+      def to(b: Seq[T]) = L(b.map(t => tav.to(t)).toList)
     }
 
   implicit def toDynamoValueForToDynamoMappable[T](implicit tdm: ToDynamoMap[T]): ToDynamoValue[T] =
@@ -161,15 +153,15 @@ trait AutoToAttributeValue {
 
   import DynamoValue._
 
-  implicit def toDynamoMapForMap[V](implicit tmv: ToDynamoValue[V]) = new ToDynamoMap[Map[String, V]] {
+  implicit def toDynamoMapForMap[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[Map[String, V]] = new ToDynamoMap[Map[String, V]] {
     def to(av: Map[String, V]) = M(av.mapValues(tmv.to).toMap)
   }
 
-  implicit def toDynamoMapForTuple[V](implicit tmv: ToDynamoValue[V]) = new ToDynamoMap[(String, V)] {
+  implicit def toDynamoMapForTuple[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[(String, V)] = new ToDynamoMap[(String, V)] {
     def to(av: (String, V)) = toDynamoMapForMap[V].to(Map(av))
   }
 
-  implicit def toDynamoMapForHNil = new ToDynamoMap[HNil] {
+  implicit def toDynamoMapForHNil: ToDynamoMap[HNil] = new ToDynamoMap[HNil] {
     def to(av: HNil) = M(Map())
   }
 
@@ -178,7 +170,7 @@ trait AutoToAttributeValue {
       key: Witness.Aux[Key],
       th: Lazy[ToDynamoValue[H]],
       tt: Lazy[ToDynamoMap[T]]
-  ) = new ToDynamoMap[FieldType[Key, H] :: T] {
+  ): ToDynamoMap[FieldType[Key, H] :: T] = new ToDynamoMap[FieldType[Key, H] :: T] {
     def to(a: labelled.FieldType[Key, H] :: T): DynamoValue.M = {
       val pair = key.value.name -> th.value.to(a.head)
       DynamoValue.M(tt.value.to(a.tail).m + pair)

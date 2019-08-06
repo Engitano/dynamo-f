@@ -20,7 +20,7 @@ case class QueryRequest[A](
 case class QueryResponse[A](results: List[A], lastEvaluatedKey:  Option[DynamoValue.M])
 
 case class AttributeDefinition(name: String, attrType: ScalarAttributeType)
-sealed trait PrimaryKey
+sealed trait PrimaryKey 
 case class SimpleKey(attribute: AttributeDefinition)                                 extends PrimaryKey
 case class CompositeKey(hashKey: AttributeDefinition, rangeKey: AttributeDefinition) extends PrimaryKey
 

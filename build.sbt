@@ -19,11 +19,12 @@ test in publish := {}
 
 lazy val root = (project in file("."))
   .settings(scalaVersion := "2.13.0")
-  .aggregate(`dynamo-f`,`dynamo-f-formats`)
+  .aggregate(`dynamo-f`, `dynamo-f-formats`)
 
 lazy val `dynamo-f-formats` = (project in file("formats"))
   .settings(
     Common(),
+    addCompilerPlugin("io.tryp" % "splain" % "0.4.1" cross CrossVersion.patch),
     version := s"${majorVersion.value}.${minorVersion.value}${patchVersion.value.fold("")(p => s".$p")}",
     libraryDependencies ++= Seq(
       Dependencies.catsCore,
@@ -38,7 +39,7 @@ lazy val `dynamo-f-formats` = (project in file("formats"))
     bintrayPackageLabels := Seq("dynamodb", "fs2", "cats")
   )
 
-lazy val `dynamo-f` = (project in file("core"))
+lazy val `dynamo-f`: Project = (project in file("core"))
   .configs(IntegrationTest)
   .settings(
     Common(),
@@ -57,4 +58,4 @@ lazy val `dynamo-f` = (project in file("core"))
   )
   .dependsOn(`dynamo-f-formats`)
 
-addCommandAlias("fullBuild", ";project root;clean;coverage;test;it:test;coverageReport")
+addCommandAlias("fullBuild", ";project root;clean;coverage;test;it:test;coverageAggregate")

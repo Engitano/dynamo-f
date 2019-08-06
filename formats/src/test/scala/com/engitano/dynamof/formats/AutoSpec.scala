@@ -25,6 +25,7 @@ class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
         import auto._
         type F[A] = Either[Throwable, A]
         "correctly map a struct" in {
+            // implicit val tdm = ToDynamoMap[TestStruct]
             val to = ToDynamoValue[TestStruct]
             val from = FromDynamoValue[F, TestStruct]
             to.to(TestStruct(nes"123", 21)) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))

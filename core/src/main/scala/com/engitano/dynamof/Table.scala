@@ -35,11 +35,9 @@ import cats.effect.Async
 import java.util.concurrent.CompletableFuture
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 
-
-
 sealed trait Table[A] {
   val name: String
-  val key: KeyId
+  val key: PrimaryKey
   type KeyId
   type KeyValue
 }
@@ -57,10 +55,10 @@ object Table {
         gen: LabelledGeneric.Aux[A, Repr],
         s: Selector.Aux[Repr, K, V],
         sat: HasScalarAttributeRepr[V]
-    ): Table.Aux[A, SimpleKey, V] = new Table[A] {
+    ): Table.Aux[A, K, V] = new Table[A] {
       val name           = tableName
-      val key: SimpleKey = SimpleKey(AttributeDefinition(hk.value.name, sat.to))
-      type KeyId    = SimpleKey
+      val key: PrimaryKey = SimpleKey(AttributeDefinition(hk.value.name, sat.to))
+      type KeyId    = K
       type KeyValue = V
     }
     def apply[HK <: Symbol, HV, RK <: Symbol, RV, Repr <: HList](tableName: String, hk: Witness.Aux[HK], rk: Witness.Aux[RK])(
@@ -70,10 +68,10 @@ object Table {
         hsat: HasScalarAttributeRepr[HV],
         rs: Selector.Aux[Repr, RK, RV],
         rsat: HasScalarAttributeRepr[RV]
-    ): Table.Aux[A, CompositeKey, (HV, RV)] = new Table[A] {
+    ): Table.Aux[A, (HK, RK), (HV, RV)] = new Table[A] {
       val name = tableName
-      val key  = CompositeKey(AttributeDefinition(hk.value.name, hsat.to), AttributeDefinition(rk.value.name, rsat.to))
-      type KeyId    = CompositeKey
+      val key: PrimaryKey  = CompositeKey(AttributeDefinition(hk.value.name, hsat.to), AttributeDefinition(rk.value.name, rsat.to))
+      type KeyId    = (HK, RK)
       type KeyValue = (HV, RV)
     }
   }

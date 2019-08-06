@@ -1,11 +1,9 @@
 package com.engitano.dynamof.formats
-
+  
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import java.nio.ByteBuffer
-import shapeless.LabelledGeneric._
 
 import scala.jdk.CollectionConverters._
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 
@@ -50,7 +48,9 @@ object DynamoValue {
   case class NS(ns: Set[N])                 extends DynamoValue
   case class BS(bs: Set[B])                 extends DynamoValue
   case class L(l: List[DynamoValue])        extends DynamoValue
-  case class M(m: Map[String, DynamoValue]) extends DynamoValue
+  case class M(m: Map[String, DynamoValue]) extends DynamoValue {
+    def ++(other: M): M = M(other.m ++ m)
+  }
 
   def parse(a: AttributeValue): DynamoValue = {
     if (a.nul()) Null
@@ -91,7 +91,7 @@ sealed abstract class DynamoValue {
     case NS(ns)  => AttributeValue.builder.ns(ns.map(_.n).asJavaCollection).build()
     case BS(bs)  => AttributeValue.builder.bs(bs.map(b => SdkBytes.fromByteBuffer(b.b)).asJavaCollection).build()
     case L(l)    => AttributeValue.builder.l(l.map(_.toAttributeValue).asJavaCollection).build()
-    case M(m)    => AttributeValue.builder.m(m.view.mapValues(_.toAttributeValue).toMap.asJava).build()
+    case M(m)    => AttributeValue.builder.m(m.mapValues(_.toAttributeValue).toMap.asJava).build()
     case Empty   => AttributeValue.builder.build()
   }
 }
