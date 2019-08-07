@@ -18,7 +18,11 @@ writeVersion := {
 test in publish := {}
 
 lazy val root = (project in file("."))
-  .settings(scalaVersion := "2.13.0")
+  .settings(Common())
+  .settings(
+    version := s"${majorVersion.value}.${minorVersion.value}${patchVersion.value.fold("")(p => s".$p")}",
+    skip in publish := true
+  )
   .aggregate(`dynamo-f`, `dynamo-f-formats`)
 
 lazy val `dynamo-f-formats` = (project in file("formats"))
