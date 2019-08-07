@@ -12,7 +12,7 @@ jobs:
             - ivy
       - run:
           command: |
-            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ 2.13.0;coverage;test;it:test;coverageAggregate;coveralls;"
+            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ 2.13.0;coverage;test;it:test;coverageAggregate;coveralls"
       - save_cache:
           key: ivy
           paths:
@@ -34,7 +34,7 @@ jobs:
             - ivy
       - run:
           command: |
-            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ 2.12.8;coverage;test;it:test;coverageAggregate;coveralls;"
+            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ 2.12.8;coverage;test;it:test;coverageAggregate;coveralls"
       - save_cache:
           key: ivy
           paths:
@@ -58,7 +58,8 @@ jobs:
             - ivy
       - run:
           command: |
-            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");+publish"
+            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");+publish;writeVersion"
+      - run: git tag $(cat ./version.txt) && git push --tags
       - save_cache:
           key: ivy
           paths:
