@@ -58,7 +58,7 @@ jobs:
             - ivy
       - run:
           command: |
-            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ publish"
+            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");+publish"
       - save_cache:
           key: ivy
           paths:
