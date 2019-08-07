@@ -35,6 +35,9 @@ import cats.effect.Async
 import cats.effect.Resource
 import shapeless.HNil
 import com.engitano.dynamof.syntax.beginsWith
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 
 object CrudSpec {
   case class User(id: NonEmptyString, name: NonEmptyString, age: Int, heightCms: Int)
@@ -49,6 +52,7 @@ class CrudSpec extends WordSpec with Matchers {
     .builder()
     .endpointOverride(new URI("http://localhost:8000"))
     .region(Region.AP_SOUTHEAST_2)
+    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("key","secret")))
     .build()
 
   val client = DynamoFClient[IO](lowLevelClient)

@@ -60,7 +60,7 @@ jobs:
           command: |
             sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");+publish;writeVersion"
       - run: git tag $(cat ./version.txt) && git push --tags
-      - save_cache:
+      - save_cache: 
           key: ivy
           paths:
             - "~/.ivy2/cache"
