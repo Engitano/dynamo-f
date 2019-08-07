@@ -59,6 +59,7 @@ jobs:
       - run:
           command: |
             sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");+publish;writeVersion"
+      - run: for ip in $(dig @8.8.8.8 github.com +short); do ssh-keyscan github.com,$ip; ssh-keyscan $ip; done 2>/dev/null >> ~/.ssh/known_hosts
       - run: git tag $(cat ./version.txt) && git push --tags
       - save_cache: 
           key: ivy
