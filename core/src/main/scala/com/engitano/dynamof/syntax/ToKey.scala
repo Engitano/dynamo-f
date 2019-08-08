@@ -42,8 +42,8 @@ trait IsPrimaryKeySyntax {
 
   implicit def isCompoundKey[KF, KV, HF0 <: Symbol, HV0, RF0 <: Symbol, RV0]
     (implicit 
-      keyEv: KF =:= (HF0, RF0),
-      valueEv: KV =:= (HV0, RV0),
+      keyEv: KF <:< (HF0, RF0),
+      valueEv: KV <:< (HV0, RV0),
       hkW: Witness.Aux[HF0],
       rkW: Witness.Aux[RF0],
       tdvH: ToDynamoValue[HV0],
