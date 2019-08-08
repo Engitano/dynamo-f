@@ -4,9 +4,6 @@
 
 #### !Not production ready. Don't use. You have been warned!
 
-### BYO Effect Type.
-Without needing 'Free' interpreters
-
 ### Strongly Typed.
 Using the types in `com.engitano.dynamof.syntax.all._`, compliance to the the DynamoDB domain rules are checked by the compiler.
 i.e
@@ -17,6 +14,9 @@ i.e
 
 ### Non Blocking
 Uses Amazon SDK V2 under the hood with non-blocking goodness.
+
+### BYO Effect Type.
+Without needing 'Free' interpreters
 
 #### Usage
 

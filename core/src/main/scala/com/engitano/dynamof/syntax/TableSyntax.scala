@@ -32,15 +32,15 @@ trait TableSyntax {
 
     def create(readCapacity: Long, writeCapacity: Long) =
       CreateTableRequest(table.name, table.key, readCapacity, writeCapacity)
-    def get(h: KeyValue)(implicit toKey: ToKey[KeyId, KeyValue]) =
-      GetItemRequest[A](table.name, toKey.toKey(h))
+    def get(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue]) =
+      GetItemRequest[A](table.name, k.primaryKey(h))
 
-    def list[HV, HK <: Symbol](h: HV)(implicit k: KeyValue <:< (HV, _), eq: KeyId <:< (HK, _), w: Witness.Aux[HK], tdv: ToDynamoValue[HV]) =
-      ListItemsRequest[A](table.name, (w.value.name -> tdv.to(h)), None)
+    def list[HV, HK <: Symbol](h: HV)(implicit k: IsCompoundKey.Aux[KeyId, KeyValue, HK, HV, _, _]) =
+      ListItemsRequest[A](table.name, k.hashKey(h).m.head, None)
     def put(a: A)(implicit tdv: ToDynamoMap[A]) =
       PutItemRequest(table.name, tdv.to(a))
-    def delete(h: KeyValue)(implicit toKey: ToKey[KeyId, KeyValue]) =
-      DeleteItemRequest(table.name, toKey.toKey(h))
+    def delete(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue]) =
+      DeleteItemRequest(table.name, k.primaryKey(h))
     def query[
         Repr <: HList,
         HK <: Symbol,
@@ -52,19 +52,15 @@ trait TableSyntax {
         F <: HList
     ](key: HV, h: FieldPredicate[RV], predicate: F = HNil, limit: Option[Int] = None, startAt: Option[KeyValue] = None)(
         implicit
-        kid: KeyId <:< (HK, RK),
-        k: KeyValue <:< (HV, RV),
+        ck: IsCompoundKey.Aux[KeyId, KeyValue, HK, HV, RK, RV],
         tdvr: ToDynamoValue[RV],
-        thk: ToKey[HK, HV],
         wr: Witness.Aux[RK],
         tp: ToPredicate[F],
-        repr: LabelledGeneric.Aux[A, Repr],
-        fields: Keys.Aux[Repr, AK],
+        fields: FieldNames.Aux[A, AK],
         qFields: Keys.Aux[F, QK],
         ev: BasisConstraint[QK, AK],
         nhk: NotContainsConstraint[QK, HK],
-        nrk: NotContainsConstraint[QK, RK],
-        tk: ToKey[KeyId, KeyValue]
-    ) = QueryRequest[A](table.name, thk.toKey(key).m.head, h.toPredicate(wr.value.name), limit, tp.to(predicate), startAt.map(tk.toKey))
+        nrk: NotContainsConstraint[QK, RK]
+    ) = QueryRequest[A](table.name, ck.hashKey(key).m.head, h.toPredicate(wr.value.name), limit, tp.to(predicate), startAt.map(ck.primaryKey))
   }
 }
