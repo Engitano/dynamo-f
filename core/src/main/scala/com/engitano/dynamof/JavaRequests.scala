@@ -12,6 +12,8 @@ import software.amazon.awssdk.services.dynamodb.model.{
   ProvisionedThroughput => JProvisionedThroughput,
   DeleteItemRequest => JDeleteItemRequest,
   QueryRequest => JQueryRequest,
+  LocalSecondaryIndex => JLocalSecondaryIndex,
+  GlobalSecondaryIndex => JGlobalSecondaryIndex,
   KeySchemaElement,
   KeyType
 }
@@ -84,7 +86,9 @@ private object JavaRequests {
     
     val withStartKey = req.startAt.fold(withFilter)(sa => withFilter.exclusiveStartKey(sa.toAttributeValue.m()))
 
-    req.limit.fold(withStartKey)(sk => withStartKey.limit(sk)).build()
+    val withIndex = req.index.fold(withStartKey)(withStartKey.indexName)
+
+    req.limit.fold(withIndex)(sk => withIndex.limit(sk)).build()
   }
 
   def toAttributeDefinition(attr: AttributeDefinition) = attr match {

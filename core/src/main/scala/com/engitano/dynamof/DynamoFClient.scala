@@ -28,6 +28,7 @@ trait DynamoFClient[F[_]] {
 object DynamoFClient {
   import syntax.completableFutures._
   def apply[F[_]](client: DynamoDbAsyncClient)(implicit F: Async[F]): DynamoFClient[F] = new DynamoFClient[F] {
+
     def createTable(req: CreateTableRequest): F[Unit] =
       client
         .createTable(JavaRequests.to(req))

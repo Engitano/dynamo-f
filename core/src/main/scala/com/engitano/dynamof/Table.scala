@@ -34,12 +34,74 @@ import shapeless.{=:!=, HList, LabelledGeneric, Witness, Generic, ::, HNil}
 import cats.effect.Async
 import java.util.concurrent.CompletableFuture
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
+import com.engitano.dynamof.Index.IndexType
+import com.engitano.dynamof.Index.Local
+import com.engitano.dynamof.Index.Global
+
+sealed trait Index[A]{
+  val tableName: String
+  val indexName: String
+  val key: PrimaryKey
+  type KeyId
+  type KeyValue
+  type Type <: IndexType
+}
+
+object Index {
+
+  sealed trait IndexType
+  case class Local() extends IndexType
+  case class Global() extends IndexType
+
+  type Aux[A0, KID, KV, IXT <: IndexType] = Index[A0] {
+    type KeyId    = KID
+    type KeyValue = KV
+    type Type = IXT
+  }
+}
 
 sealed trait Table[A] {
   val name: String
   val key: PrimaryKey
   type KeyId
   type KeyValue
+
+  def localSecondaryIndex[HK <: Symbol, HV, RK0, RK <: Symbol, RV, Repr <: HList](ixName: String, rk: Witness.Aux[RK])(
+        implicit
+        hk: KeyId <:< (HK, RK0),
+        kv: KeyValue <:< (HV, _),
+        ev: RK0 =:!= RK,
+        hw: Witness.Aux[HK],
+        hsat: ToScalarAttr[HV],
+        gen: LabelledGeneric.Aux[A, Repr],
+        rs: Selector.Aux[Repr, RK, RV],
+        rsat: ToScalarAttr[RV]
+    ): Index.Aux[A, (HK, RK), (HV, RV), Local] = new Index[A] {
+      val indexName = ixName
+      val tableName: String = name
+      val key: PrimaryKey  = CompositeKey(AttributeDefinition(hw.value.name, hsat.to), AttributeDefinition(rk.value.name, rsat.to))
+      type KeyId    = (HK, RK)
+      type KeyValue = (HV, RV)
+      type Type = Local
+    }
+
+  def globalSecondaryIndex[HK <: Symbol, HV, RK <: Symbol, RV, Repr <: HList](ixName: String, hk: Witness.Aux[HK], rk: Witness.Aux[RK])(
+        implicit
+        ev: (HK, RK) =:!= KeyId,
+        ev1: HK =:!= RK,
+        gen: LabelledGeneric.Aux[A, Repr],
+        hs: Selector.Aux[Repr, HK, HV],
+        hsat: ToScalarAttr[HV],
+        rs: Selector.Aux[Repr, RK, RV],
+        rsat: ToScalarAttr[RV]
+    ): Index.Aux[A, (HK, RK), (HV, RV), Global] = new Index[A] {
+      val indexName = ixName
+      val tableName: String = name
+      val key: PrimaryKey  = CompositeKey(AttributeDefinition(hk.value.name, hsat.to), AttributeDefinition(rk.value.name, rsat.to))
+      type KeyId    = (HK, RK)
+      type KeyValue = (HV, RV)
+      type Type = Global
+    }
 }
 
 object Table {
@@ -54,20 +116,22 @@ object Table {
         implicit
         gen: LabelledGeneric.Aux[A, Repr],
         s: Selector.Aux[Repr, K, V],
-        sat: HasScalarAttributeRepr[V]
+        sat: ToScalarAttr[V]
     ): Table.Aux[A, K, V] = new Table[A] {
       val name           = tableName
       val key: PrimaryKey = SimpleKey(AttributeDefinition(hk.value.name, sat.to))
       type KeyId    = K
       type KeyValue = V
     }
+    
     def apply[HK <: Symbol, HV, RK <: Symbol, RV, Repr <: HList](tableName: String, hk: Witness.Aux[HK], rk: Witness.Aux[RK])(
         implicit
+        ev: HK =:!= RK,
         gen: LabelledGeneric.Aux[A, Repr],
         hs: Selector.Aux[Repr, HK, HV],
-        hsat: HasScalarAttributeRepr[HV],
+        hsat: ToScalarAttr[HV],
         rs: Selector.Aux[Repr, RK, RV],
-        rsat: HasScalarAttributeRepr[RV]
+        rsat: ToScalarAttr[RV]
     ): Table.Aux[A, (HK, RK), (HV, RV)] = new Table[A] {
       val name = tableName
       val key: PrimaryKey  = CompositeKey(AttributeDefinition(hk.value.name, hsat.to), AttributeDefinition(rk.value.name, rsat.to))

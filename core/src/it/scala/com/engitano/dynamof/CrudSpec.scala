@@ -21,6 +21,7 @@
 
 package com.engitano.dynamof
 
+import com.engitano.dynamof.syntax.all._
 import com.engitano.dynamof.formats._
 import com.engitano.dynamof.formats.auto._
 import cats.effect.IO
@@ -44,8 +45,6 @@ object CrudSpec {
 }
 
 class CrudSpec extends WordSpec with Matchers {
-  import syntax.all._
-  import syntax.{between => btwn}
   import testSyntax._
 
   val lowLevelClient = DynamoDbAsyncClient
@@ -61,7 +60,7 @@ class CrudSpec extends WordSpec with Matchers {
     "CRUD items" in {
       val table        = Table[User]("users", 'id)
       val expectedUser = User(nes"1", nes"Fred", 25, 180)
-      val create       = table.create(1, 1)
+      val create       = table.create(1, 1, Seq(), Seq())
       val put          = table.put(expectedUser)
       val get          = table.get(nes"1")
       val del          = table.delete(nes"1")
@@ -78,14 +77,14 @@ class CrudSpec extends WordSpec with Matchers {
       program.unsafeRunSync shouldBe (Some(expectedUser), None)
     }
     "List items" in {
-      val table         = Table[User]("users", 'id, 'name)
+      val table         = Table[User]("users", 'id, 'age)
       val expectedUser1 = User(nes"1", nes"Fred", 25, 180)
       val expectedUser2 = User(nes"1", nes"Joe", 30, 180)
       val putFred       = table.put(expectedUser1)
       val putJoe        = table.put(expectedUser2)
       val listUsers     = table.list(nes"1")
 
-      val program = client.useTable(table.create(1, 1)) {
+      val program = client.useTable(table.create(1, 1, Seq(), Seq())) {
         for {
           _     <- (client.putItem(putFred), client.putItem(putJoe)).tupled
           items <- client.listItems(listUsers)
@@ -107,7 +106,7 @@ class CrudSpec extends WordSpec with Matchers {
       val putJoe        = table.put(expectedUser4)
       val findFred      = table.query(nes"1", beginsWith(nes"Fre"), 'age > 20 and 'heightCms > 152, limit = Some(5), startAt = Some((nes"1", nes"Fre")))
 
-      val program = client.useTable(table.create(1, 1)) {
+      val program = client.useTable(table.create(1, 1, Seq(), Seq())) {
         for {
           _     <- (client.putItem(putFred), client.putItem(putFreddy),client.putItem(putFreddo), client.putItem(putJoe)).tupled
           items <- client.queryItems(findFred)

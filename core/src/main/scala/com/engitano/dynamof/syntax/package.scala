@@ -5,18 +5,12 @@ import shapeless.HList
 
 package object syntax {
 
-  trait AllSyntax
-      extends TableSyntax
-      with HasScalarAttributeReprInstances
-      with FilterSyntax
-      with ToPredicateInstances
-      with IsPrimaryKeySyntax
-      with FieldNamesSyntax
+  trait AllSyntax extends TableSyntax with ToScalarAttrInstances with FilterSyntax with ToPredicateInstances with IsPrimaryKeySyntax with FieldNamesSyntax
 
   object table              extends TableSyntax
   object isPrimaryKey       extends IsPrimaryKeySyntax
   object filter             extends FilterSyntax
-  object scalarAttributes   extends HasScalarAttributeReprInstances
+  object scalarAttributes   extends ToScalarAttrInstances
   object completableFutures extends CompletableFutureSyntax
   object all                extends AllSyntax
 }
@@ -30,7 +24,8 @@ object FieldNames {
 }
 
 trait FieldNamesSyntax {
-  implicit def apply[T, LGRepr <: HList, K <: HList](implicit lg: LabelledGeneric.Aux[T, LGRepr], keys: Keys.Aux[LGRepr, K]): FieldNames.Aux[T, K] = new FieldNames[T] {
-    type Repr = K
-  }
+  implicit def apply[T, LGRepr <: HList, K <: HList](implicit lg: LabelledGeneric.Aux[T, LGRepr], keys: Keys.Aux[LGRepr, K]): FieldNames.Aux[T, K] =
+    new FieldNames[T] {
+      type Repr = K
+    }
 }
