@@ -4,7 +4,7 @@ import shapeless._
 import shapeless.labelled.FieldType
 import com.engitano.dynamof.Predicate
 import com.engitano.dynamof.formats.ToDynamoValue
-import com.engitano.dynamof.And
+import com.engitano.dynamof.{ And => Amp }
 
 trait ToPredicate[L <: HList] {
     def to(l: L): Option[Predicate]
@@ -26,7 +26,7 @@ trait ToPredicate[L <: HList] {
           val and = tp.to(l.tail)
           val h   = l.head.toPredicate(key.value.name)
           and match {
-            case Some(a) => Some(And(a, h))
+            case Some(a) => Some(Amp(a, h))
             case None    => Some(h)
           }
         }
