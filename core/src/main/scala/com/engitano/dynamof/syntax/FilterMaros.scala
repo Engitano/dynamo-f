@@ -38,7 +38,7 @@ class FilterMacros(val c: whitebox.Context) extends SingletonTypeUtils with Repr
     val name = TypeName(c.freshName("anon$"))
     q"""
       {
-        final class $name extends com.engitano.dynamof.syntax.SymbolOps {
+        final class $name extends com.engitano.dynamof.syntax.FilterSymbolOps {
           import shapeless.Witness
           type K = $w
           val field = $field

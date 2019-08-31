@@ -29,4 +29,13 @@ package object formats {
     implicit class NonEmptyStringHelper(val sc: StringContext) extends AnyVal {
         def nes(args: Any*): NonEmptyString = macro formats.NonEmptyStringMacros.nesImpl
       }
+
+      object syntax {
+
+        class ToDynamoSyntax[V](v: V)(implicit tdv: ToDynamoValue[V]) {
+          def toDynamo = tdv.to(v)
+        }
+
+        implicit def toDynamoSyntax[V: ToDynamoValue](v: V) = new ToDynamoSyntax[V](v)
+      }
 }

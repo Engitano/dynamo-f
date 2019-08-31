@@ -5,7 +5,7 @@ import shapeless.HList
 
 package object syntax {
 
-  trait AllSyntax extends TableSyntax with ToScalarAttrInstances with FilterSyntax with ToPredicateInstances with IsPrimaryKeySyntax with FieldNamesSyntax
+  trait AllSyntax extends TableSyntax with ToScalarAttrInstances with FilterSyntax with ToPredicateInstances with IsPrimaryKeySyntax with FieldNamesSyntax with CompletableFutureSyntax
 
   object table              extends TableSyntax
   object isPrimaryKey       extends IsPrimaryKeySyntax

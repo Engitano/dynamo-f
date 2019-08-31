@@ -1,7 +1,7 @@
 package com.engitano.dynamof
 
 import com.engitano.dynamof.formats._
-import com.engitano.dynamof.syntax._
+import com.engitano.dynamof.syntax.all._
 import cats.instances.list._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
@@ -26,7 +26,6 @@ trait DynamoFClient[F[_]] {
 }
 
 object DynamoFClient {
-  import syntax.completableFutures._
   def apply[F[_]](client: DynamoDbAsyncClient)(implicit F: Async[F]): DynamoFClient[F] = new DynamoFClient[F] {
 
     def createTable(req: CreateTableRequest): F[Unit] =

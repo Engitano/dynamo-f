@@ -5,20 +5,29 @@ import com.engitano.dynamof.formats._
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 
 trait ToScalarAttr[A] {
-  def to: ScalarAttributeType
+  type S <: ScalarAttributeType
+  def to: S
+}
+
+object ToScalarAttr {
+  type Aux[A, S0 <: ScalarAttributeType] = ToScalarAttr[A] { type S = S0 }
 }
 
 trait ToScalarAttrInstances {
-  implicit def scalarAttrTypeForInt = new ToScalarAttr[Int] {
-    def to = ScalarAttributeType.N
+  implicit def scalarAttrTypeForInt: ToScalarAttr.Aux[Int, ScalarAttributeType.N.type] = new ToScalarAttr[Int] {
+    type S = ScalarAttributeType.N.type
+    def to: S = ScalarAttributeType.N
   }
-  implicit def scalarAttrTypeForLong = new ToScalarAttr[Long] {
-    def to = ScalarAttributeType.N
+  implicit def scalarAttrTypeForLong: ToScalarAttr.Aux[Long, ScalarAttributeType.N.type] = new ToScalarAttr[Long] {
+    type S = ScalarAttributeType.N.type
+    def to: S = ScalarAttributeType.N
   }
-  implicit def scalarAttrTypeForBool = new ToScalarAttr[Boolean] {
-    def to = ScalarAttributeType.B
+  implicit def scalarAttrTypeForBool: ToScalarAttr.Aux[Boolean, ScalarAttributeType.B.type] = new ToScalarAttr[Boolean] {
+    type S = ScalarAttributeType.B.type
+    def to: S = ScalarAttributeType.B
   }
-  implicit def scalarAttrTypeForNes = new ToScalarAttr[formats.NonEmptyString] {
-    def to = ScalarAttributeType.S
+  implicit def scalarAttrTypeForNes: ToScalarAttr.Aux[formats.NonEmptyString, ScalarAttributeType.S.type] = new ToScalarAttr[formats.NonEmptyString] {
+    type S = ScalarAttributeType.S.type
+    def to: S = ScalarAttributeType.S
   }
 }
