@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import scala.language.experimental.macros
 
 package object formats {
+import cats.ApplicativeError
 
     type DynamoDocument = java.util.Map[String, AttributeValue]
 
@@ -24,6 +25,7 @@ package object formats {
       def unsafeFromString(s: String): NonEmptyString = refineV[NonEmpty](s).getOrElse(throw new Exception("Non empty string expected. Empty string found"))
 
       def fromString(s: String): Either[String, NonEmptyString] = refineV[NonEmpty](s)
+      def fromStringF[F[_]](s: String)(implicit F:  ApplicativeError[F, Throwable]): F[NonEmptyString] = F.catchNonFatal(unsafeFromString(s))
     }
 
     implicit class NonEmptyStringHelper(val sc: StringContext) extends AnyVal {
