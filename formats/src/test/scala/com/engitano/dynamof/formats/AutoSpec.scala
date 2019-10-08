@@ -18,6 +18,7 @@ import com.engitano.dynamof.formats.AutoFormatsSpec._
 object AutoFormatsSpec {
     case class TestStruct(id: DynamoString, age: Int)
     case class TestOptionStruct(id: DynamoString, age: Option[Int])
+    case class TestOptionList(id: DynamoString, age: Seq[Int])
 }
 
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
@@ -53,6 +54,13 @@ class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
             val from = FromDynamoValue[F, TestOptionStruct]
             to.to(TestOptionStruct(dyn"123", Some(21))) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
             from.from(M(Map("id" -> S("321"), "age" -> Null))) shouldBe Right(TestOptionStruct(dyn"321", None))
+        }
+
+        "correctly map a struct with Seq values when dynamo values are Null" in {
+            val to = ToDynamoValue[TestOptionList]
+            val from = FromDynamoValue[F, TestOptionList]
+            to.to(TestOptionList(dyn"123", List(21))) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> L(List(N("21")))))
+            from.from(M(Map("id" -> S("321"), "age" -> L(List(N("21")))))) shouldBe Right(TestOptionList(dyn"321", List(21)))
         }
         "map to and from scala type" when {
             "type is int" in {

@@ -159,10 +159,10 @@ trait LowPriorityFromAttributeValue {
   implicit def fromAttributeValueForSeq[F[_], A](
       implicit F: ApplicativeError[F, Throwable],
       fda: FromDynamoValue[F, A]
-  ): FromDynamoValue[F, List[A]] =
+  ): FromDynamoValue[F, Seq[A]] =
     attemptF {
-      case L(s)  => s.traverse(fda.from)
-      case Empty => F.pure(List[A]())
+      case L(s)  => s.traverse(fda.from).map(_.toSeq)
+      case Empty => F.pure(Seq[A]())
     }
 
   implicit def fromAttributeValueForMap[F[_]: CommutativeApplicative, A](
