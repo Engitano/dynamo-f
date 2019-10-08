@@ -13,10 +13,11 @@ import org.scalacheck.Prop._
 import java.time.LocalDate
 import java.time.LocalDateTime
 import org.scalacheck.ScalacheckShapeless._
-import com.engitano.dynamof.formats.AutoFormatsSpec.TestStruct
+import com.engitano.dynamof.formats.AutoFormatsSpec._
 
 object AutoFormatsSpec {
     case class TestStruct(id: DynamoString, age: Int)
+    case class TestOptionStruct(id: DynamoString, age: Option[Int])
 }
 
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
@@ -25,17 +26,33 @@ class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
         import auto._
         type F[A] = Either[Throwable, A]
         "correctly map a struct" in {
-            // implicit val tdm = ToDynamoMap[TestStruct]
             val to = ToDynamoValue[TestStruct]
             val from = FromDynamoValue[F, TestStruct]
-            to.to(TestStruct(nes"123", 21)) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
-            from.from(M(Map("id" -> S("321"), "age" -> N("12")))) shouldBe Right(TestStruct(nes"321", 12))
+            to.to(TestStruct(dyn"123", 21)) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
+            from.from(M(Map("id" -> S("321"), "age" -> N("12")))) shouldBe Right(TestStruct(dyn"321", 12))
         }
         "correctly map a struct to a map" in {
             val to = ToDynamoMap[TestStruct]
             val from = FromDynamoValue[F, TestStruct]
-            to.to(TestStruct(nes"123", 21)) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
-            from.from(M(Map("id" -> S("321"), "age" -> N("12")))) shouldBe Right(TestStruct(nes"321", 12))
+            to.to(TestStruct(dyn"123", 21)) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
+            from.from(M(Map("id" -> S("321"), "age" -> N("12")))) shouldBe Right(TestStruct(dyn"321", 12))
+        }
+        "correctly map a struct with optional values when dynamo values are supplied" in {
+            val to = ToDynamoValue[TestOptionStruct]
+            val from = FromDynamoValue[F, TestOptionStruct]
+            to.to(TestOptionStruct(dyn"123", Some(21))) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
+            from.from(M(Map("id" -> S("321"), "age" -> N("12")))) shouldBe Right(TestOptionStruct(dyn"321", Some(12)))
+        }
+        "correctly map a struct with optional values when dynamo values are not supplied" in {
+            val from = FromDynamoValue[F, TestOptionStruct]
+            from.from(M(Map("id" -> S("321")))) shouldBe Right(TestOptionStruct(dyn"321", None))
+        }
+
+        "correctly map a struct with optional values when dynamo values are Null" in {
+            val to = ToDynamoValue[TestOptionStruct]
+            val from = FromDynamoValue[F, TestOptionStruct]
+            to.to(TestOptionStruct(dyn"123", Some(21))) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
+            from.from(M(Map("id" -> S("321"), "age" -> Null))) shouldBe Right(TestOptionStruct(dyn"321", None))
         }
         "map to and from scala type" when {
             "type is int" in {

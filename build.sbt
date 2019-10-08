@@ -28,7 +28,7 @@ lazy val root = (project in file("."))
 lazy val `dynamo-f-formats` = (project in file("formats"))
   .settings(
     Common(),
-    addCompilerPlugin("io.tryp" % "splain" % "0.4.1" cross CrossVersion.patch),
+    // addCompilerPlugin("io.tryp" % "splain" % "0.4.1" cross CrossVersion.patch),
     version := s"${majorVersion.value}.${minorVersion.value}${patchVersion.value.fold("")(p => s".$p")}",
     libraryDependencies ++= Seq(
       Dependencies.catsCore,

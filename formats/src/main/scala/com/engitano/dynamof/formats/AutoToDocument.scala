@@ -219,6 +219,31 @@ trait AutoFromAttributeValue {
   implicit def fromAttributeValueForHNil[F[_]](implicit F: Applicative[F]): FromDynamoValue[F, HNil] = new FromDynamoValue[F, HNil] {
     def from(av: DynamoValue): F[HNil] = F.pure(HNil)
   }
+
+  implicit def fromAttributeValueForHConsOption[F[_], Key <: Symbol, H, T <: HList](
+    implicit F: MonadError[F, Throwable],
+    key: Witness.Aux[Key],
+    th: Lazy[FromDynamoValue[F, H]],
+    tt: Lazy[FromDynamoValue[F, T]]
+): FromDynamoValue[F, FieldType[Key, Option[H]] :: T] = new FromDynamoValue[F, FieldType[Key, Option[H]] :: T] {
+  def from(av: DynamoValue): F[labelled.FieldType[Key, Option[H]] :: T] = av match {
+    case M(m) =>
+      val v: F[FieldType[Key, Option[H]]] = (m
+        .get(key.value.name) match {
+          case Some(Null) => F.pure(none[H])
+          case Some(v) => th.value.from(v).map(_.some)
+          case None => F.pure(none[H])
+        })
+        .map(v => field[Key](v))
+   
+      val t = tt.value.from(av)
+      (v, t).tupled.map {
+        case (v, t) => v :: t
+      }
+    case _ => F.raiseError(BaseCaseNotPossibleException)
+  }
+}
+
   implicit def fromAttributeValueForHCons[F[_], Key <: Symbol, H, T <: HList](
       implicit F: MonadError[F, Throwable],
       key: Witness.Aux[Key],
@@ -234,8 +259,8 @@ trait AutoFromAttributeValue {
           .flatMap(th.value.from)
           .map(v => field[Key](v))
         val t = tt.value.from(av)
-        (v, t).tupled.flatMap {
-          case (v, t) => F.pure(v :: t)
+        (v, t).tupled.map {
+          case (v, t) => v :: t
         }
       case _ => F.raiseError(BaseCaseNotPossibleException)
     }

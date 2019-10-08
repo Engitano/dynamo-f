@@ -59,11 +59,11 @@ class CrudSpec extends WordSpec with Matchers {
   "DynamoF" should {
     "CRUD items" in {
       val table        = Table[User]("users", 'id)
-      val expectedUser = User(nes"1", nes"Fred", 25, 180)
+      val expectedUser = User(dyn"1", dyn"Fred", 25, 180)
       val create       = table.create(1, 1, Seq(), Seq())
       val put          = table.put(expectedUser)
-      val get          = table.get(nes"1")
-      val del          = table.delete(nes"1")
+      val get          = table.get(dyn"1")
+      val del          = table.delete(dyn"1")
 
       val program = client.useTable(create) {
         for {
@@ -78,11 +78,11 @@ class CrudSpec extends WordSpec with Matchers {
     }
     "List items" in {
       val table         = Table[User]("users", 'id, 'age)
-      val expectedUser1 = User(nes"1", nes"Fred", 25, 180)
-      val expectedUser2 = User(nes"1", nes"Joe", 30, 180)
+      val expectedUser1 = User(dyn"1", dyn"Fred", 25, 180)
+      val expectedUser2 = User(dyn"1", dyn"Joe", 30, 180)
       val putFred       = table.put(expectedUser1)
       val putJoe        = table.put(expectedUser2)
-      val listUsers     = table.list(nes"1")
+      val listUsers     = table.list(dyn"1")
 
       val program = client.useTable(table.create(1, 1, Seq(), Seq())) {
         for {
@@ -96,15 +96,15 @@ class CrudSpec extends WordSpec with Matchers {
 
     "Query items" in {
       val table         = Table[User]("users", 'id, 'name)
-      val expectedUser1 = User(nes"1", nes"Fred", 25, 180)
-      val expectedUser2 = User(nes"1", nes"Michael", 32, 152)
-      val expectedUser3 = User(nes"1", nes"Nick", 19, 180)
-      val expectedUser4 = User(nes"1", nes"Zoe", 30, 180)
+      val expectedUser1 = User(dyn"1", dyn"Fred", 25, 180)
+      val expectedUser2 = User(dyn"1", dyn"Michael", 32, 152)
+      val expectedUser3 = User(dyn"1", dyn"Nick", 19, 180)
+      val expectedUser4 = User(dyn"1", dyn"Zoe", 30, 180)
       val putFred       = table.put(expectedUser1)
       val putFreddy     = table.put(expectedUser2)
       val putFreddo     = table.put(expectedUser3)
       val putJoe        = table.put(expectedUser4)
-      val findFred      = table.query(nes"1", beginsWith(nes"Fre"), 'age > 20 and 'heightCms > 152, limit = Some(5), startAt = Some((nes"1", nes"Fre")))
+      val findFred      = table.query(dyn"1", beginsWith(dyn"Fre"), 'age > 20 and 'heightCms > 152, limit = Some(5), startAt = Some((dyn"1", dyn"Fre")))
 
       val program = client.useTable(table.create(1, 1, Seq(), Seq())) {
         for {

@@ -15,10 +15,12 @@ import cats.ApplicativeError
 
     type DynamoDocument = java.util.Map[String, AttributeValue]
 
+    val DynamoString = NonEmptyString
+
     type DynamoString = NonEmptyString
 
     implicit class NonEmptyStringHelper(val sc: StringContext) extends AnyVal {
-        def nes(args: Any*): NonEmptyString = macro formats.NonEmptyStringMacros.nesImpl
+        def dyn(args: Any*): NonEmptyString = macro formats.NonEmptyStringMacros.nesImpl
       }
 
       object syntax {
