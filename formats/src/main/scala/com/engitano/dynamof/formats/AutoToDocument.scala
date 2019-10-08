@@ -57,8 +57,8 @@ trait LowPriorityToAttributeValue {
     def to(i: ByteBuffer) = B(i)
   }
 
-  implicit def toDynamoValueForString: ToDynamoValue[NonEmptyString] = new ToDynamoValue[NonEmptyString] {
-    def to(s: NonEmptyString) = S(s.toString)
+  implicit def toDynamoValueForString: ToDynamoValue[DynamoString] = new ToDynamoValue[DynamoString] {
+    def to(s: DynamoString) = S(s.toString)
   }
 
   implicit def toDynamoValueForTemporalAccessor[A <: TemporalAccessor]: ToDynamoValue[A] =
@@ -124,7 +124,7 @@ trait LowPriorityFromAttributeValue {
     case S(s) => s
   }
 
-  implicit def fromAttributeValueForNonEmptyString[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, NonEmptyString] = attemptF {
+  implicit def fromAttributeValueForNonEmptyString[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, DynamoString] = attemptF {
     case S(s) if(s.length() > 0) => F.fromEither(refineV[NonEmpty](s).leftMap(_ => EmptyStringException))
   }
 

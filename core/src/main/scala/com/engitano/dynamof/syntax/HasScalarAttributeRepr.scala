@@ -26,7 +26,7 @@ trait ToScalarAttrInstances {
     type S = ScalarAttributeType.B.type
     def to: S = ScalarAttributeType.B
   }
-  implicit def scalarAttrTypeForNes: ToScalarAttr.Aux[formats.NonEmptyString, ScalarAttributeType.S.type] = new ToScalarAttr[formats.NonEmptyString] {
+  implicit def scalarAttrTypeForNes: ToScalarAttr.Aux[formats.DynamoString, ScalarAttributeType.S.type] = new ToScalarAttr[formats.DynamoString] {
     type S = ScalarAttributeType.S.type
     def to: S = ScalarAttributeType.S
   }

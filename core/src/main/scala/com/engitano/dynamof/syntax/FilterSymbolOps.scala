@@ -1,7 +1,7 @@
 package com.engitano.dynamof.syntax
 
 import shapeless._
-import com.engitano.dynamof.formats.NonEmptyString
+import com.engitano.dynamof.formats.DynamoString
 import shapeless.ops.hlist.Prepend
 
 object FilterSymbolOps {
@@ -16,7 +16,7 @@ trait FilterSymbolOps {
   def ===[KV](v: KV): FieldType[K, FieldPredicate[KV]] :: HNil = field[K](equalTo[KV](v)) :: HNil
   def >=[KV](v: KV): FieldType[K, FieldPredicate[KV]] :: HNil  = field[K](gte[KV](v)) :: HNil
   def >[KV](v: KV): FieldType[K, FieldPredicate[KV]] :: HNil   = field[K](gt[KV](v)) :: HNil
-  def beginsWith[KV](v: KV)(implicit isS: KV =:= NonEmptyString): FieldType[K, FieldPredicate[KV]] :: HNil =
+  def beginsWith[KV](v: KV)(implicit isS: KV =:= DynamoString): FieldType[K, FieldPredicate[KV]] :: HNil =
     field[K](com.engitano.dynamof.syntax.beginsWith[KV](v)) :: HNil
 }
 

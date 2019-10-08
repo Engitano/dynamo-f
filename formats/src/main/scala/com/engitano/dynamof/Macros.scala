@@ -1,5 +1,6 @@
 package com.engitano.dynamof.formats
 
+import eu.timepit.refined.types.string.NonEmptyString
 import eu.timepit.refined.auto._
 import scala.reflect.macros.blackbox
 
@@ -30,7 +31,7 @@ class NonEmptyStringMacros(val c: blackbox.Context) {
         bldr append (_root_.scala.StringContext treatEscapes pi.next)
       }
       val res = bldr.toString
-      _root_.com.engitano.dynamof.formats.NonEmptyString unsafeFromString res
+      _root_.eu.timepit.refined.types.string.NonEmptyString unsafeFrom res
     """)
   }
 

@@ -10,23 +10,12 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import scala.language.experimental.macros
 
 package object formats {
+import eu.timepit.refined.types.string.NonEmptyString
 import cats.ApplicativeError
 
     type DynamoDocument = java.util.Map[String, AttributeValue]
 
-    type NonEmptyString = String Refined NonEmpty
-
-    object NonEmptyString {
-      def apply(t: String)(implicit rt: RefType[Refined], v: Validate[String, NonEmpty]): NonEmptyString =
-        macro RefineMacro.impl[Refined, String, NonEmpty]
-
-      def unapply(x: NonEmptyString): Some[String] = Some(x)
-      
-      def unsafeFromString(s: String): NonEmptyString = refineV[NonEmpty](s).getOrElse(throw new Exception("Non empty string expected. Empty string found"))
-
-      def fromString(s: String): Either[String, NonEmptyString] = refineV[NonEmpty](s)
-      def fromStringF[F[_]](s: String)(implicit F:  ApplicativeError[F, Throwable]): F[NonEmptyString] = F.catchNonFatal(unsafeFromString(s))
-    }
+    type DynamoString = NonEmptyString
 
     implicit class NonEmptyStringHelper(val sc: StringContext) extends AnyVal {
         def nes(args: Any*): NonEmptyString = macro formats.NonEmptyStringMacros.nesImpl

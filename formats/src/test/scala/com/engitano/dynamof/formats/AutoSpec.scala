@@ -16,7 +16,7 @@ import org.scalacheck.ScalacheckShapeless._
 import com.engitano.dynamof.formats.AutoFormatsSpec.TestStruct
 
 object AutoFormatsSpec {
-    case class TestStruct(id: NonEmptyString, age: Int)
+    case class TestStruct(id: DynamoString, age: Int)
 }
 
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
@@ -57,7 +57,7 @@ class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
             }
 
             "type is non emptyString" in {
-                val to = ToDynamoValue[NonEmptyString]
+                val to = ToDynamoValue[DynamoString]
                 val from = FromDynamoValue[F, String]
                 check { (i: String) => 
                     i.length() > 0 ==> (from.from(to.to(eu.timepit.refined.refineV[NonEmpty].unsafeFrom(i))) == Right(i))
