@@ -18,13 +18,16 @@ import eu.timepit.refined.auto._
 import cats.MonadError
 import shapeless.Lazy
 import cats.CommutativeApplicative
+import java.time.LocalDate
 
 case object EmptyStringException          extends Throwable
 case object AttributeValueFormatException extends Throwable
 case object BaseCaseNotPossibleException  extends Throwable
 
 private[formats] object DateFormats {
-  val formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+  val zonedFormatter      = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+  val localTimedFormatter = DateTimeFormatter.ISO_DATE_TIME
+  val localDateFormatter  = DateTimeFormatter.ISO_DATE
 }
 
 object UnsafeString {
@@ -61,9 +64,19 @@ trait LowPriorityToAttributeValue {
     def to(s: DynamoString) = S(s.toString)
   }
 
-  implicit def toDynamoValueForTemporalAccessor[A <: TemporalAccessor]: ToDynamoValue[A] =
-    new ToDynamoValue[A] {
-      def to(s: A) = S(DateFormats.formatter.format(s))
+  implicit def toDynamoValueForLocalDate: ToDynamoValue[LocalDate] =
+    new ToDynamoValue[LocalDate] {
+      def to(s: LocalDate) = S(DateFormats.localDateFormatter.format(s))
+    }
+
+  implicit def toDynamoValueForLocalDateTime: ToDynamoValue[LocalDateTime] =
+    new ToDynamoValue[LocalDateTime] {
+      def to(s: LocalDateTime) = S(DateFormats.localTimedFormatter.format(s))
+    }
+
+  implicit def toDynamoValueForZonedDateTime: ToDynamoValue[ZonedDateTime] =
+    new ToDynamoValue[ZonedDateTime] {
+      def to(s: ZonedDateTime) = S(DateFormats.zonedFormatter.format(s))
     }
 
   implicit def toDynamoValueForOption[T](implicit tav: ToDynamoValue[T]): ToDynamoValue[Option[T]] =
@@ -124,25 +137,38 @@ trait LowPriorityFromAttributeValue {
     case S(s) => s
   }
 
-  implicit def fromAttributeValueForNonEmptyString[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, DynamoString] = attemptF {
-    case S(s) if(s.length() > 0) => F.fromEither(refineV[NonEmpty](s).leftMap(_ => EmptyStringException))
+  implicit def fromAttributeValueForNonEmptyString[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, DynamoString] =
+    attemptF {
+      case S(s) if (s.length() > 0) => F.fromEither(refineV[NonEmpty](s).leftMap(_ => EmptyStringException))
+    }
+
+  implicit def fromAttributeValueForLocalDate[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, LocalDate] = attemptF {
+    case S(s) => F.catchNonFatal(LocalDate.parse(s, DateFormats.localDateFormatter))
   }
 
-  implicit def fromAttributeValueForLocalDateTime[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, LocalDateTime] = attempt {
-    case S(s) => LocalDateTime.parse(s, DateFormats.formatter)
-  }
+  implicit def fromAttributeValueForLocalDateTime[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, LocalDateTime] =
+    attempt {
+      case S(s) => LocalDateTime.parse(s, DateFormats.localTimedFormatter)
+    }
 
-  implicit def fromAttributeValueForZonedDateTime[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, ZonedDateTime] = attempt {
-    case S(s) => ZonedDateTime.parse(s, DateFormats.formatter)
-  }
+  implicit def fromAttributeValueForZonedDateTime[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, ZonedDateTime] =
+    attempt {
+      case S(s) => ZonedDateTime.parse(s, DateFormats.zonedFormatter)
+    }
 
-  implicit def fromAttributeValueForSeq[F[_], A](implicit F: ApplicativeError[F, Throwable], fda: FromDynamoValue[F, A]): FromDynamoValue[F, List[A]] =
+  implicit def fromAttributeValueForSeq[F[_], A](
+      implicit F: ApplicativeError[F, Throwable],
+      fda: FromDynamoValue[F, A]
+  ): FromDynamoValue[F, List[A]] =
     attemptF {
       case L(s)  => s.traverse(fda.from)
       case Empty => F.pure(List[A]())
     }
 
-  implicit def fromAttributeValueForMap[F[_]: CommutativeApplicative, A](implicit F: ApplicativeError[F, Throwable], fda: FromDynamoValue[F, A]): FromDynamoValue[F, Map[String, A]] =
+  implicit def fromAttributeValueForMap[F[_]: CommutativeApplicative, A](
+      implicit F: ApplicativeError[F, Throwable],
+      fda: FromDynamoValue[F, A]
+  ): FromDynamoValue[F, Map[String, A]] =
     attemptF {
       case M(s)  => s.unorderedTraverse(fda.from)
       case Empty => F.pure(Map[String, A]())
@@ -223,4 +249,4 @@ trait AutoFromAttributeValue {
   }
 }
 
-object auto extends LowPriorityFromAttributeValue with LowPriorityToAttributeValue with AutoToAttributeValue with AutoFromAttributeValue
+object auto extends LowPriorityFromAttributeValue with LowPriorityToAttributeValue with AutoToAttributeValue with AutoFromAttributeValue {}
