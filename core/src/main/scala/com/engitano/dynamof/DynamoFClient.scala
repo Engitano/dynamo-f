@@ -13,14 +13,12 @@ import scala.jdk.CollectionConverters._
 import software.amazon.awssdk.services.dynamodb.model.DeleteTableRequest
 
 trait DynamoFClient[F[_]] {
-  type Serializer[A]   = ToDynamoValue[A]
-  type Deserializer[A] = FromDynamoValue[F, A]
 
   def createTable(req: CreateTableRequest): F[Unit]
   def putItem(req: PutItemRequest): F[Unit]
-  def getItem[A: Deserializer](req: GetItemRequest[A]): F[Option[A]]
+  def getItem[A: FromDynamoValue[F, ?]](req: GetItemRequest[A]): F[Option[A]]
   def deleteItem(req: DeleteItemRequest): F[Unit]
-  def listItems[A: Deserializer](req: ListItemsRequest[A]): F[QueryResponse[A]]
+  def listItems[A:  FromDynamoValue[F, ?]](req: ListItemsRequest[A]): F[QueryResponse[A]]
   def queryItems[A](req: QueryRequest[A])(implicit fdv: FromDynamoValue[F, A]): F[QueryResponse[A]]
   def deleteTable(name: String): F[Unit]
 }
