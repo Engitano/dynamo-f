@@ -25,10 +25,10 @@ class NonEmptyStringMacros(val c: blackbox.Context) {
       val args = _root_.scala.List[_root_.scala.Any](..$args)
       val pi = parts.iterator
       val ai = args.iterator
-      val bldr = new _root_.java.lang.StringBuilder(_root_.scala.StringContext treatEscapes pi.next())
+      val bldr = new _root_.java.lang.StringBuilder(_root_.scala.StringContext processEscapes pi.next())
       while (ai.hasNext) {
         bldr append ai.next
-        bldr append (_root_.scala.StringContext treatEscapes pi.next)
+        bldr append (_root_.scala.StringContext processEscapes pi.next)
       }
       val res = bldr.toString
       _root_.eu.timepit.refined.types.string.NonEmptyString unsafeFrom res
