@@ -41,7 +41,7 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 
 object CrudSpec {
-  case class User(id: NonEmptyString, name: NonEmptyString, age: Int, heightCms: Int)
+  case class User(id: DynamoString, name: DynamoString, age: Int, heightCms: Int)
 }
 
 class CrudSpec extends WordSpec with Matchers {
