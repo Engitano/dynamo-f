@@ -6,12 +6,12 @@ import eu.timepit.refined.auto._
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.macros.RefineMacro
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import eu.timepit.refined.types.string.NonEmptyString
+import cats.ApplicativeError
 
 import scala.language.experimental.macros
 
 package object formats {
-import eu.timepit.refined.types.string.NonEmptyString
-import cats.ApplicativeError
 
     type DynamoDocument = java.util.Map[String, AttributeValue]
 
@@ -19,7 +19,7 @@ import cats.ApplicativeError
 
     type DynamoString = NonEmptyString
 
-    implicit class NonEmptyStringHelper(val sc: StringContext) extends AnyVal {
+    implicit class NonEmptyStringHelper(val sc: StringContext ) extends AnyVal {
         def dyn(args: Any*): NonEmptyString = macro formats.NonEmptyStringMacros.nesImpl
       }
 

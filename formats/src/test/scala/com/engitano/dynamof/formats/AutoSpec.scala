@@ -19,6 +19,11 @@ object AutoFormatsSpec {
     case class TestStruct(id: DynamoString, age: Int)
     case class TestOptionStruct(id: DynamoString, age: Option[Int])
     case class TestOptionList(id: DynamoString, age: Seq[Int])
+    sealed trait Animal
+    case object Dog extends Animal
+    case object Cat extends Animal
+    case class Pet(name: DynamoString) extends Animal
+    case class Zoo(animals: Seq[Animal])
 }
 
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
@@ -31,6 +36,27 @@ class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
             val from = FromDynamoValue[F, TestStruct]
             to.to(TestStruct(dyn"123", 21)) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
             from.from(M(Map("id" -> S("321"), "age" -> N("12")))) shouldBe Right(TestStruct(dyn"321", 12))
+        }
+        "correctly map sum types" in {
+            val to = ToDynamoValue[Animal]
+            val from = FromDynamoValue[F, Animal]
+            val serializedDog = DynamoValue.M(Map("Dog" -> DynamoValue.M(Map())))
+            val serializedPet = DynamoValue.M(Map("Pet" -> DynamoValue.M(Map("name" -> DynamoValue.S("Fido")))))
+            to.to(Dog) shouldBe serializedDog
+            to.to(Pet(dyn"Fido")) shouldBe serializedPet
+            from.from(serializedDog) shouldBe Right(Dog)
+            from.from(serializedPet) shouldBe Right(Pet(dyn"Fido"))
+        }
+
+        "correctly map a product with sum types" in {
+            val to = ToDynamoValue[Zoo]
+            val from = FromDynamoValue[F, Zoo]
+            val zoo = Zoo(List(Dog, Pet(dyn"Fido"), Cat))
+            val serialized = to.to(zoo)
+            val expected = M(Map("animals" -> L(List(M(Map("Dog" -> M(Map()))), M(Map("Pet" -> M(Map("name" -> S("Fido"))))), M(Map("Cat" -> M(Map())))))))
+            serialized shouldBe expected
+            from.from(serialized) shouldBe Right(zoo)
+
         }
         "correctly map a struct to a map" in {
             val to = ToDynamoMap[TestStruct]

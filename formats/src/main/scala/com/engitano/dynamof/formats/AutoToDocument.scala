@@ -1,4 +1,6 @@
 package com.engitano.dynamof.formats
+
+import cats.Functor
 import cats.Applicative
 import cats.ApplicativeError
 import cats.implicits._
@@ -221,28 +223,27 @@ trait AutoFromAttributeValue {
   }
 
   implicit def fromAttributeValueForHConsOption[F[_], Key <: Symbol, H, T <: HList](
-    implicit F: MonadError[F, Throwable],
-    key: Witness.Aux[Key],
-    th: Lazy[FromDynamoValue[F, H]],
-    tt: Lazy[FromDynamoValue[F, T]]
-): FromDynamoValue[F, FieldType[Key, Option[H]] :: T] = new FromDynamoValue[F, FieldType[Key, Option[H]] :: T] {
-  def from(av: DynamoValue): F[labelled.FieldType[Key, Option[H]] :: T] = av match {
-    case M(m) =>
-      val v: F[FieldType[Key, Option[H]]] = (m
-        .get(key.value.name) match {
+      implicit F: MonadError[F, Throwable],
+      key: Witness.Aux[Key],
+      th: Lazy[FromDynamoValue[F, H]],
+      tt: Lazy[FromDynamoValue[F, T]]
+  ): FromDynamoValue[F, FieldType[Key, Option[H]] :: T] = new FromDynamoValue[F, FieldType[Key, Option[H]] :: T] {
+    def from(av: DynamoValue): F[labelled.FieldType[Key, Option[H]] :: T] = av match {
+      case M(m) =>
+        val v: F[FieldType[Key, Option[H]]] = (m
+          .get(key.value.name) match {
           case Some(Null) => F.pure(none[H])
-          case Some(v) => th.value.from(v).map(_.some)
-          case None => F.pure(none[H])
-        })
-        .map(v => field[Key](v))
-   
-      val t = tt.value.from(av)
-      (v, t).tupled.map {
-        case (v, t) => v :: t
-      }
-    case _ => F.raiseError(BaseCaseNotPossibleException)
+          case Some(v)    => th.value.from(v).map(_.some)
+          case None       => F.pure(none[H])
+        }).map(v => field[Key](v))
+
+        val t = tt.value.from(av)
+        (v, t).tupled.map {
+          case (v, t) => v :: t
+        }
+      case _ => F.raiseError(BaseCaseNotPossibleException)
+    }
   }
-}
 
   implicit def fromAttributeValueForHCons[F[_], Key <: Symbol, H, T <: HList](
       implicit F: MonadError[F, Throwable],
@@ -274,4 +275,64 @@ trait AutoFromAttributeValue {
   }
 }
 
-object auto extends LowPriorityFromAttributeValue with LowPriorityToAttributeValue with AutoToAttributeValue with AutoFromAttributeValue {}
+trait SumTypeDerivations {
+
+  implicit def toDynamoValueCNil: ToDynamoValue[CNil] = new ToDynamoValue[CNil] {
+    def to(a: CNil): DynamoValue = DynamoValue.Empty
+  }
+
+  implicit def toDynamoValueCCons[K <: Symbol, V, R <: Coproduct](
+      implicit
+      fieldWitness: Witness.Aux[K],
+      headGen: ToDynamoValue[V],
+      tdvR: ToDynamoValue[R]
+  ): ToDynamoValue[FieldType[K, V] :+: R] = new ToDynamoValue[FieldType[K, V] :+: R] {
+    def to(a: labelled.FieldType[K,V] :+: R): DynamoValue = a match {
+      case Inl(head) => 
+        DynamoValue.M(Map(fieldWitness.value.name -> headGen.to(head)))
+      case Inr(tail) =>  tdvR.to(tail)
+    }
+  }
+
+  implicit def toDynamoValueForFamilies[A, Repr <: Coproduct](
+    implicit
+    gen: LabelledGeneric.Aux[A, Repr],
+    genericFormat: ToDynamoValue[Repr]
+  ): ToDynamoValue[A] =
+    new ToDynamoValue[A] {
+      final def to(av: A) = genericFormat.to(gen.to(av))
+    }
+
+    implicit def fromDynamoValueCNil[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, CNil] = 
+    new FromDynamoValue[F, CNil] {
+      def from(a: DynamoValue): F[CNil] = F.raiseError(new Exception(s"Canot serializer ${a} to CNil"))
+    }
+  
+    implicit def fromDynamoValueCCons[F[_],K <: Symbol, V, R <: Coproduct](
+        implicit
+        fieldWitness: Witness.Aux[K],
+        headGen: FromDynamoValue[F,V],
+        tdvR: FromDynamoValue[F, R],
+        F: ApplicativeError[F, Throwable]
+    ): FromDynamoValue[F, FieldType[K, V] :+: R] = new FromDynamoValue[F, FieldType[K, V] :+: R] {
+      def from(dv: DynamoValue): F[labelled.FieldType[K,V] :+: R] = dv match {
+        case DynamoValue.M(m) if(m.head._1 == fieldWitness.value.name) => 
+          headGen.from(m.head._2).map(h => Inl(field[K](h)))
+        case DynamoValue.M(m) => tdvR.from(dv).map(v => Inr(v))
+        case _ => F.raiseError(new Exception(s"Cannot deserialize ${dv}"))
+      }
+    }
+  
+    implicit def fromDynamoValueForFamilies[F[_]: Functor, A, Repr <: Coproduct](
+      implicit
+      notOpt: A <:!< Option[_], // Options are handled with fromAttributeValueForHConsOption
+      notList: A <:!< List[_], // Options are handled with fromAttributeValueForHConsOption
+      gen: LabelledGeneric.Aux[A, Repr],
+      genericFormat: FromDynamoValue[F, Repr]
+    ): FromDynamoValue[F, A] =
+      new FromDynamoValue[F, A] {
+        def from(dv: DynamoValue) = genericFormat.from(dv).map(gen.from)
+      }
+}
+
+object auto extends SumTypeDerivations with LowPriorityFromAttributeValue with LowPriorityToAttributeValue with AutoToAttributeValue with AutoFromAttributeValue {}
