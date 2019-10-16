@@ -18,12 +18,12 @@ import com.engitano.dynamof.formats.AutoFormatsSpec._
 object AutoFormatsSpec {
     case class TestStruct(id: DynamoString, age: Int)
     case class TestOptionStruct(id: DynamoString, age: Option[Int])
-    case class TestOptionList(id: DynamoString, age: Seq[Int])
+    case class TestOptionList(id: DynamoString, age: List[Int])
     sealed trait Animal
     case object Dog extends Animal
     case object Cat extends Animal
     case class Pet(name: DynamoString) extends Animal
-    case class Zoo(animals: Seq[Animal])
+    case class Zoo(animals: List[Animal])
 }
 
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {

@@ -16,11 +16,14 @@ import shapeless.labelled._
 import eu.timepit.refined.collection._
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
+import com.engitano.dynamof.formats.instances.all._
 
 import cats.MonadError
 import shapeless.Lazy
 import cats.CommutativeApplicative
 import java.time.LocalDate
+import cats.kernel.Monoid
+import cats.MonoidK
 
 case object EmptyStringException          extends Throwable
 case object AttributeValueFormatException extends Throwable
@@ -89,9 +92,9 @@ trait LowPriorityToAttributeValue {
       }
     }
 
-  implicit def toDynamoValueForSeq[T](implicit tav: ToDynamoValue[T]): ToDynamoValue[Seq[T]] =
-    new ToDynamoValue[Seq[T]] {
-      def to(b: Seq[T]) = L(b.map(t => tav.to(t)).toList)
+  implicit def toDynamoValueForSeq[C[_]<: Seq[_], T](implicit tav: ToDynamoValue[T]): ToDynamoValue[C[T]] =
+    new ToDynamoValue[C[T]] {
+      def to(b: C[T]) = L(b.asInstanceOf[Seq[T]].map(t => tav.to(t)).toList)
     }
 
   implicit def toDynamoValueForToDynamoMappable[T](implicit tdm: ToDynamoMap[T]): ToDynamoValue[T] =
@@ -164,8 +167,13 @@ trait LowPriorityFromAttributeValue {
   ): FromDynamoValue[F, Seq[A]] =
     attemptF {
       case L(s)  => s.traverse(fda.from).map(_.toSeq)
-      case Empty => F.pure(Seq[A]())
+      case Empty => F.pure(Seq())
     }
+
+    implicit def fromAttributeValueForList[F[_], A](
+      implicit F: ApplicativeError[F, Throwable],
+      fda: FromDynamoValue[F, A]
+  ): FromDynamoValue[F, List[A]] = fromAttributeValueForSeq[F, A].map(_.toList)
 
   implicit def fromAttributeValueForMap[F[_]: CommutativeApplicative, A](
       implicit F: ApplicativeError[F, Throwable],
