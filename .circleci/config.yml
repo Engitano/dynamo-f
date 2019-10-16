@@ -76,16 +76,16 @@ workflows:
           filters:
             tags:
               ignore: /.*/
-      - build_212:
-          context: release
-          filters:
-            tags:
-              ignore: /.*/
+      # - build_212:
+      #     context: release
+      #     filters:
+      #       tags:
+      #         ignore: /.*/
       - release:
           context: release
           requires:
             - build_213
-            - build_212
+            # - build_212
           filters:
             branches:
                only:
