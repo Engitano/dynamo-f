@@ -16,7 +16,7 @@ import org.scalacheck.ScalacheckShapeless._
 import com.engitano.dynamof.formats.AutoFormatsSpec._
 
 object AutoFormatsSpec {
-    case class TestStruct(id: DynamoString, age: Int)
+    case class TestStruct(id: DynamoString, age: Long)
     case class TestOptionStruct(id: DynamoString, age: Option[Int])
     case class TestOptionList(id: DynamoString, age: List[Int])
     sealed trait Animal

@@ -131,6 +131,9 @@ trait LowPriorityFromAttributeValue {
   implicit def fromAttributeValueForInt[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, Int] = attempt {
     case N(n) => n.toInt
   }
+  implicit def fromAttributeValueForLong[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, Long] = attempt {
+    case N(n) => n.toLong
+  }
   implicit def fromAttributeValueForFloat[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, Float] = attempt {
     case N(n) => n.toFloat
   }
