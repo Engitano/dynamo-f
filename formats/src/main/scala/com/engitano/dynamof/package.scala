@@ -13,22 +13,22 @@ import scala.language.experimental.macros
 
 package object formats {
 
-    type DynamoDocument = java.util.Map[String, AttributeValue]
+  type DynamoDocument = java.util.Map[String, AttributeValue]
 
-    val DynamoString = NonEmptyString
+  val DynamoString = NonEmptyString
 
-    type DynamoString = NonEmptyString
+  type DynamoString = NonEmptyString
 
-    implicit class NonEmptyStringHelper(val sc: StringContext ) extends AnyVal {
-        def dyn(args: Any*): NonEmptyString = macro formats.NonEmptyStringMacros.nesImpl
-      }
+  implicit class NonEmptyStringHelper(val sc: StringContext) extends AnyVal {
+    def dyn(args: Any*): NonEmptyString = macro formats.NonEmptyStringMacros.nesImpl
+  }
 
-      object syntax {
+  object syntax {
 
-        class ToDynamoSyntax[V](v: V)(implicit tdv: ToDynamoValue[V]) {
-          def toDynamo = tdv.to(v)
-        }
+    class ToDynamoSyntax[V](v: V)(implicit tdv: ToDynamoValue[V]) {
+      def toDynamo = tdv.to(v)
+    }
 
-        implicit def toDynamoSyntax[V: ToDynamoValue](v: V) = new ToDynamoSyntax[V](v)
-      }
+    implicit def toDynamoSyntax[V: ToDynamoValue](v: V) = new ToDynamoSyntax[V](v)
+  }
 }

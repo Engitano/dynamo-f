@@ -34,7 +34,7 @@ jobs:
             - ivy
       - run:
           command: |
-            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ 2.12.8;coverage;test;it:test;coverageAggregate;coveralls"
+            sbt ";set Global / patchVersion := Some(\"$CIRCLE_BUILD_NUM\");++ 2.12.8;compile"
       - save_cache:
           key: ivy
           paths:
@@ -76,16 +76,16 @@ workflows:
           filters:
             tags:
               ignore: /.*/
-      # - build_212:
-      #     context: release
-      #     filters:
-      #       tags:
-      #         ignore: /.*/
+      - build_212:
+          context: release
+          filters:
+            tags:
+              ignore: /.*/
       - release:
           context: release
           requires:
             - build_213
-            # - build_212
+            - build_212
           filters:
             branches:
                only:
