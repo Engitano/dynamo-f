@@ -65,7 +65,7 @@ trait LowPriorityToAttributeValue {
     def to(i: ByteBuffer) = B(i)
   }
 
-  implicit def toDynamoValueForString: ToDynamoValue[DynamoString] = new ToDynamoValue[DynamoString] {
+  implicit def toDynamoValueForDynamoString: ToDynamoValue[DynamoString] = new ToDynamoValue[DynamoString] {
     def to(s: DynamoString) = S(s.toString)
   }
 
@@ -97,9 +97,9 @@ trait LowPriorityToAttributeValue {
       def to(b: C[T]) = L(b.asInstanceOf[Seq[T]].map(t => tav.to(t)).toList)
     }
 
-  implicit def toDynamoValueForToDynamoMappable[T](implicit tdm: ToDynamoMap[T]): ToDynamoValue[T] =
+  implicit def toDynamoValueForToDynamoMappable[T](implicit tdm: Lazy[ToDynamoMap[T]]): ToDynamoValue[T] =
     new ToDynamoValue[T] {
-      def to(b: T) = tdm.to(b)
+      def to(b: T) = tdm.value.to(b)
     }
 }
 
@@ -277,9 +277,9 @@ trait AutoFromAttributeValue {
 
   implicit def fromAttributeValueForGeneric[F[_]: MonadError[?[_], Throwable], T, R <: HList](
       implicit gen: LabelledGeneric.Aux[T, R],
-      fav: FromDynamoValue[F, R]
+      fav: Lazy[FromDynamoValue[F, R]]
   ): FromDynamoValue[F, T] = new FromDynamoValue[F, T] {
-    def from(av: DynamoValue): F[T] = fav.from(av).map(gen.from)
+    def from(av: DynamoValue): F[T] = fav.value.from(av).map(gen.from)
   }
 }
 
@@ -292,13 +292,13 @@ trait SumTypeDerivations {
   implicit def toDynamoValueCCons[K <: Symbol, V, R <: Coproduct](
       implicit
       fieldWitness: Witness.Aux[K],
-      headGen: ToDynamoValue[V],
-      tdvR: ToDynamoValue[R]
+      headGen: Lazy[ToDynamoValue[V]],
+      tdvR: Lazy[ToDynamoValue[R]]
   ): ToDynamoValue[FieldType[K, V] :+: R] = new ToDynamoValue[FieldType[K, V] :+: R] {
     def to(a: labelled.FieldType[K, V] :+: R): DynamoValue = a match {
       case Inl(head) =>
-        DynamoValue.M(Map(fieldWitness.value.name -> headGen.to(head)))
-      case Inr(tail) => tdvR.to(tail)
+        DynamoValue.M(Map(fieldWitness.value.name -> headGen.value.to(head)))
+      case Inr(tail) => tdvR.value.to(tail)
     }
   }
 
@@ -319,14 +319,14 @@ trait SumTypeDerivations {
   implicit def fromDynamoValueCCons[F[_], K <: Symbol, V, R <: Coproduct](
       implicit
       fieldWitness: Witness.Aux[K],
-      headGen: FromDynamoValue[F, V],
-      tdvR: FromDynamoValue[F, R],
+      headGen: Lazy[FromDynamoValue[F, V]],
+      tdvR: Lazy[FromDynamoValue[F, R]],
       F: ApplicativeError[F, Throwable]
   ): FromDynamoValue[F, FieldType[K, V] :+: R] = new FromDynamoValue[F, FieldType[K, V] :+: R] {
     def from(dv: DynamoValue): F[labelled.FieldType[K, V] :+: R] = dv match {
       case DynamoValue.M(m) if (m.head._1 == fieldWitness.value.name) =>
-        headGen.from(m.head._2).map(h => Inl(field[K](h)))
-      case DynamoValue.M(m) => tdvR.from(dv).map(v => Inr(v))
+        headGen.value.from(m.head._2).map(h => Inl(field[K](h)))
+      case DynamoValue.M(m) => tdvR.value.from(dv).map(v => Inr(v))
       case _                => F.raiseError(new Exception(s"Cannot deserialize ${dv}"))
     }
   }
@@ -336,16 +336,16 @@ trait SumTypeDerivations {
       notOpt: A <:!< Option[_], // Options are handled with fromAttributeValueForHConsOption
       notList: A <:!< List[_],  // Options are handled with fromAttributeValueForHConsOption
       gen: LabelledGeneric.Aux[A, Repr],
-      genericFormat: FromDynamoValue[F, Repr]
+      genericFormat: Lazy[FromDynamoValue[F, Repr]]
   ): FromDynamoValue[F, A] =
     new FromDynamoValue[F, A] {
-      def from(dv: DynamoValue) = genericFormat.from(dv).map(gen.from)
+      def from(dv: DynamoValue) = genericFormat.value.from(dv).map(gen.from)
     }
 }
 
 object auto
-    extends SumTypeDerivations
+    extends LowPriorityToAttributeValue
     with LowPriorityFromAttributeValue
-    with LowPriorityToAttributeValue
-    with AutoToAttributeValue
-    with AutoFromAttributeValue {}
+    with AutoToAttributeValue 
+    with AutoFromAttributeValue
+    with SumTypeDerivations

@@ -28,8 +28,8 @@ object AutoFormatsSpec {
 
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
     import DynamoValue._
+    import auto._
     "AutoDerivation" should {
-        import auto._
         type F[A] = Either[Throwable, A]
         "correctly map a struct" in {
             val to = ToDynamoValue[TestStruct]
