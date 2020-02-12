@@ -27,7 +27,9 @@ import cats.MonoidK
 
 case object EmptyStringException          extends Throwable
 case object AttributeValueFormatException extends Throwable
-case object BaseCaseNotPossibleException  extends Throwable
+case class BaseCaseNotPossibleException(fieldname: String, dv: DynamoValue)  extends Throwable {
+  override def getMessage(): String = s"Cannot generate type class for field name $fieldname and dynamo value $dv"
+}
 
 private[formats] object DateFormats {
   val zonedFormatter      = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -252,7 +254,7 @@ trait AutoFromAttributeValue {
         (v, t).tupled.map {
           case (v, t) => v :: t
         }
-      case _ => F.raiseError(BaseCaseNotPossibleException)
+      case _ => F.raiseError(BaseCaseNotPossibleException(key.value.name, av))
     }
   }
 
@@ -274,7 +276,7 @@ trait AutoFromAttributeValue {
         (v, t).tupled.map {
           case (v, t) => v :: t
         }
-      case _ => F.raiseError(BaseCaseNotPossibleException)
+      case _ => F.raiseError(BaseCaseNotPossibleException(key.value.name, av))
     }
   }
 

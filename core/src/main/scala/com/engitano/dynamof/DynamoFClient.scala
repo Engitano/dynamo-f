@@ -3,17 +3,24 @@ package com.engitano.dynamof
 import com.engitano.dynamof.formats._
 import com.engitano.dynamof.syntax.all._
 import cats.instances.list._
+import cats.syntax.applicativeError._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.option._
 import cats.syntax.traverse._
 import cats.effect.Async
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.jdk.CollectionConverters._
 import software.amazon.awssdk.services.dynamodb.model.DeleteTableRequest
+import software.amazon.awssdk.services.dynamodb.model.DescribeTableRequest
+import software.amazon.awssdk.services.dynamodb.model.TableDescription
+import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
+import cats.effect.Sync
 
 trait DynamoFClient[F[_]] {
 
+  def describeTable(tableName: String): F[Option[TableDescription]]
   def createTable(req: CreateTableRequest): F[Unit]
   def putItem(req: PutItemRequest): F[Unit]
   def getItem[A: FromDynamoValue[F, ?]](req: GetItemRequest[A]): F[Option[A]]
@@ -25,6 +32,16 @@ trait DynamoFClient[F[_]] {
 
 object DynamoFClient {
   def apply[F[_]](client: DynamoDbAsyncClient)(implicit F: Async[F]): DynamoFClient[F] = new DynamoFClient[F] {
+
+    def describeTable(tableName: String): F[Option[TableDescription]] =
+      client
+        .describeTable(DescribeTableRequest.builder().tableName(tableName).build())
+        .lift[F]
+        .map(r => r.table().some)
+        .handleErrorWith {
+          case _:ResourceNotFoundException => Sync[F].pure(none[TableDescription])
+          case t => Sync[F].raiseError(t)
+        }
 
     def createTable(req: CreateTableRequest): F[Unit] =
       client

@@ -6,6 +6,10 @@ import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters._
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
+import cats.Contravariant
+import cats.Functor
+import cats.ApplicativeError
+import cats.syntax.functor._
 
 object ToDynamoValue {
   def apply[A](implicit tav: ToDynamoValue[A]) = tav
@@ -25,6 +29,7 @@ trait ToDynamoMap[A] {
 object FromDynamoValue {
   def apply[F[_], A](implicit fav: FromDynamoValue[F, A]) = fav
 }
+
 trait FromDynamoValue[F[_], A] {
   def from(av: DynamoValue): F[A]
 }
