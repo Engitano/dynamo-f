@@ -2,6 +2,7 @@ package com.engitano.dynamof.syntax
 
 import cats.effect.Async
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 
 trait CompletableFutureSyntax {
 
@@ -12,6 +13,7 @@ trait CompletableFutureSyntax {
       cf.handle[Unit] { (a, t) =>
         (Option(a), Option(t)) match {
           case (Some(a), None) => cb(Right(a))
+          case (None, Some(e:CompletionException)) => cb(Left(e.getCause()))
           case (None, Some(t)) => cb(Left(t))
           case _               => cb(Left(new Exception("Impossible CompletableFuture State")))
         }
