@@ -4,6 +4,7 @@ import org.scalatest.WordSpec
 import org.scalatest.Matchers
 
 import cats.implicits._
+import cats.syntax.functor._
 import eu.timepit.refined.collection.NonEmpty
 import org.scalatest.WordSpec
 import org.scalatest.Matchers
@@ -12,8 +13,11 @@ import org.scalacheck.Arbitrary._
 import org.scalacheck.Prop._
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import org.scalacheck.ScalacheckShapeless._
 import com.engitano.dynamof.formats.AutoFormatsSpec._
+import org.scalacheck.Arbitrary
+import org.scalacheck.Gen
 
 object AutoFormatsSpec {
     case class TestStruct(id: DynamoString, age: Long)
@@ -29,6 +33,10 @@ object AutoFormatsSpec {
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
     import DynamoValue._
     import auto._
+
+    implicit def arbitraryOffsetDateTime = Arbitrary(Gen.oneOf(Seq(OffsetDateTime.now())))
+    
+
     "AutoDerivation" should {
         type F[A] = Either[Throwable, A]
         "correctly map a struct" in {
@@ -105,6 +113,12 @@ class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
                 val to = ToDynamoValue[Double]
                 val from = FromDynamoValue[F, Double]
                 check((i: Double) => from.from(to.to(i)) == Right(i))
+            }
+
+            "type is OffsetDateTime" in {
+                val to = ToDynamoValue[OffsetDateTime]
+                val from = FromDynamoValue[F, OffsetDateTime]
+                check((i: OffsetDateTime) => from.from(to.to(i)) == Right(i))
             }
 
             "type is non emptyString" in {

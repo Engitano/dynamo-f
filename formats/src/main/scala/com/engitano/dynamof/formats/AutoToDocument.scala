@@ -24,6 +24,7 @@ import cats.CommutativeApplicative
 import java.time.LocalDate
 import cats.kernel.Monoid
 import cats.MonoidK
+import java.time.OffsetDateTime
 
 case object EmptyStringException          extends Throwable
 case object AttributeValueFormatException extends Throwable
@@ -84,6 +85,11 @@ trait LowPriorityToAttributeValue {
   implicit def toDynamoValueForZonedDateTime: ToDynamoValue[ZonedDateTime] =
     new ToDynamoValue[ZonedDateTime] {
       def to(s: ZonedDateTime) = S(DateFormats.zonedFormatter.format(s))
+    }
+
+  implicit def toDynamoValueForOffsetDateTime: ToDynamoValue[OffsetDateTime] =
+    new ToDynamoValue[OffsetDateTime] {
+      def to(s: OffsetDateTime) = S(DateFormats.zonedFormatter.format(s))
     }
 
   implicit def toDynamoValueForOption[T](implicit tav: ToDynamoValue[T]): ToDynamoValue[Option[T]] =
@@ -164,6 +170,11 @@ trait LowPriorityFromAttributeValue {
   implicit def fromAttributeValueForZonedDateTime[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, ZonedDateTime] =
     attempt {
       case S(s) => ZonedDateTime.parse(s, DateFormats.zonedFormatter)
+    }
+
+  implicit def fromAttributeValueForOffsetDateTime[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, OffsetDateTime] =
+    attempt {
+      case S(s) => OffsetDateTime.parse(s, DateFormats.zonedFormatter)
     }
 
   implicit def fromAttributeValueForSeq[F[_], A](
