@@ -27,7 +27,7 @@ object AutoFormatsSpec {
     case object Dog extends Animal
     case object Cat extends Animal
     case class Pet(name: DynamoString) extends Animal
-    case class Zoo(animals: List[Animal])
+    case class Zoo(animals: Set[Animal])
 }
 
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
@@ -59,7 +59,7 @@ class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
         "correctly map a product with sum types" in {
             val to = ToDynamoValue[Zoo]
             val from = FromDynamoValue[F, Zoo]
-            val zoo = Zoo(List(Dog, Pet(dyn"Fido"), Cat))
+            val zoo = Zoo(Set(Dog, Pet(dyn"Fido"), Cat))
             val serialized = to.to(zoo)
             val expected = M(Map("animals" -> L(List(M(Map("Dog" -> M(Map()))), M(Map("Pet" -> M(Map("name" -> S("Fido"))))), M(Map("Cat" -> M(Map())))))))
             serialized shouldBe expected

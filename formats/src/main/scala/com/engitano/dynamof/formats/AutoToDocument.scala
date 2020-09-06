@@ -100,9 +100,14 @@ trait LowPriorityToAttributeValue {
       }
     }
 
-  implicit def toDynamoValueForSeq[C[_] <: Seq[_], T](implicit tav: ToDynamoValue[T]): ToDynamoValue[C[T]] =
+  implicit def toDynamoValueForSeq[C[_], T](implicit tav: ToDynamoValue[T], ev: C[T] <:< Seq[T]): ToDynamoValue[C[T]] =
     new ToDynamoValue[C[T]] {
-      def to(b: C[T]) = L(b.asInstanceOf[Seq[T]].map(t => tav.to(t)).toList)
+      def to(b: C[T]) = L(b.map(t => tav.to(t)).toList)
+    }
+
+  implicit def toDynamoValueForSet[T](implicit tav: ToDynamoValue[T]): ToDynamoValue[Set[T]] =
+    new ToDynamoValue[Set[T]] {
+      def to(b: Set[T]) = L(b.map(t => tav.to(t)).toList)
     }
 
   implicit def toDynamoValueForToDynamoMappable[T](implicit tdm: Lazy[ToDynamoMap[T]]): ToDynamoValue[T] =
