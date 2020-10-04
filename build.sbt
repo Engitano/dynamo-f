@@ -7,7 +7,7 @@ val minorVersion = SettingKey[String]("minor version")
 val patchVersion = SettingKey[Option[String]]("patch version")
 
 Global / majorVersion := "0"
-Global / minorVersion := "1"
+Global / minorVersion := "2"
 Global / patchVersion := Some("0")
 
 val writeVersion = taskKey[Unit]("Writes the version to version.txt")
@@ -40,7 +40,8 @@ lazy val `dynamo-f-formats` = (project in file("formats"))
       Dependencies.scalacheckAuto % "test"
     ),
     bintrayOrganization := Some("engitano"),
-    bintrayPackageLabels := Seq("dynamodb", "fs2", "cats")
+    bintrayPackageLabels := Seq("dynamodb", "fs2", "cats"),
+    addCompilerPlugin("io.tryp" % "splain" % "0.5.7" cross CrossVersion.patch)
   )
 
 lazy val `dynamo-f`: Project = (project in file("core"))
@@ -50,6 +51,7 @@ lazy val `dynamo-f`: Project = (project in file("core"))
     version := s"${majorVersion.value}.${minorVersion.value}${patchVersion.value.fold("")(p => s".$p")}",
     libraryDependencies ++= Seq(
       Dependencies.catsF,
+      Dependencies.catsFree,
       Dependencies.shapeless,
       Dependencies.dynamo,
       Dependencies.scalatest % "test, it"

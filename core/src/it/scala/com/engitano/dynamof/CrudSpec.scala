@@ -21,6 +21,7 @@
 
 package com.engitano.dynamof
 
+import com.engitano.dynamof.syntax._
 import com.engitano.dynamof.syntax.all._
 import com.engitano.dynamof.formats._
 import com.engitano.dynamof.formats.auto._
@@ -45,53 +46,48 @@ object CrudSpec {
 }
 
 class CrudSpec extends WordSpec with Matchers {
-  import testSyntax._
 
   val lowLevelClient = DynamoDbAsyncClient
     .builder()
     .endpointOverride(new URI("http://localhost:8000"))
     .region(Region.AP_SOUTHEAST_2)
-    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("key","secret")))
+    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("key", "secret")))
     .build()
 
-  val client = DynamoFClient[IO](lowLevelClient)
+  val interpreter = AwsSdkInterpreter[IO](lowLevelClient)
 
   "DynamoF" should {
     "CRUD items" in {
       val table        = Table[User]("users", 'id)
       val expectedUser = User(dyn"1", dyn"Fred", 25, 180)
-      val create       = table.create(1, 1, Seq(), Seq())
-      val put          = table.put(expectedUser)
       val get          = table.get(dyn"1")
-      val del          = table.delete(dyn"1")
 
-      val program = client.useTable(create) {
-        for {
-          _ <- client.putItem(put)
-          g <- client.getItem(get)
-          _ <- client.deleteItem(del)
-          h <- client.getItem(get)
-        } yield (g, h)
-      }
+      val prog = for {
+        _ <- table.createIfNotExists(1, 1, Seq(), Seq())
+        g <- get
+        _ <- table.put(expectedUser)
+        h <- get
+        _ <- table.delete(dyn"1")
+        _ <- table.drop()
+      } yield (g, h)
 
-      program.unsafeRunSync shouldBe (Some(expectedUser), None)
+      prog.eval(interpreter).unsafeRunSync shouldBe (None, Some(expectedUser))
     }
     "List items" in {
       val table         = Table[User]("users", 'id, 'age)
-      val expectedUser1 = User(dyn"1", dyn"Fred", 25, 180)
-      val expectedUser2 = User(dyn"1", dyn"Joe", 30, 180)
-      val putFred       = table.put(expectedUser1)
-      val putJoe        = table.put(expectedUser2)
-      val listUsers     = table.list(dyn"1")
+      val ix = table.localSecondaryIndex("usersByName", 'name)
+      val fred = User(dyn"1", dyn"Fred", 25, 180)
+      val joe = User(dyn"1", dyn"Joe", 30, 180)
 
-      val program = client.useTable(table.create(1, 1, Seq(), Seq())) {
-        for {
-          _     <- (client.putItem(putFred), client.putItem(putJoe)).tupled
-          items <- client.listItems(listUsers)
-        } yield items
-      }
+      val prog = for {
+        _     <- table.createIfNotExists(1, 1, Seq(ix.definition), Seq())
+        _     <- table.put(fred)
+        _     <- table.put(joe)
+        joe   <- ix.query(dyn"1", gt(dyn"J"))
+        _     <- table.drop()
+      } yield joe.results.headOption
 
-      program.unsafeRunSync() shouldBe QueryResponse(List(expectedUser1, expectedUser2), None)
+      prog.eval(interpreter).unsafeRunSync() shouldBe Some(joe)
     }
 
     "Query items" in {
@@ -100,20 +96,28 @@ class CrudSpec extends WordSpec with Matchers {
       val expectedUser2 = User(dyn"1", dyn"Michael", 32, 152)
       val expectedUser3 = User(dyn"1", dyn"Nick", 19, 180)
       val expectedUser4 = User(dyn"1", dyn"Zoe", 30, 180)
-      val putFred       = table.put(expectedUser1)
-      val putFreddy     = table.put(expectedUser2)
-      val putFreddo     = table.put(expectedUser3)
-      val putJoe        = table.put(expectedUser4)
-      val findFred      = table.query(dyn"1", beginsWith(dyn"Fre"), 'age > 20 and 'heightCms > 152, limit = Some(5), startAt = Some((dyn"1", dyn"Fre")))
 
-      val program = client.useTable(table.create(1, 1, Seq(), Seq())) {
-        for {
-          _     <- (client.putItem(putFred), client.putItem(putFreddy),client.putItem(putFreddo), client.putItem(putJoe)).tupled
-          items <- client.queryItems(findFred)
+        val prog = for {
+          _ <- table.createIfNotExists(1, 1, Seq(), Seq())
+          _ <- table.put(expectedUser1)
+          _ <- table.put(expectedUser2)
+          _ <- table.put(expectedUser3)
+          _ <- table.put(expectedUser4)
+
+          items <- table.query(
+            dyn"1",
+            beginsWith(dyn"Fre"),
+            'age > 20 and 'heightCms > 152,
+            limit = Some(5),
+            startAt = Some((dyn"1", dyn"Fre"))
+          )
+
+          
+          _ <- table.drop()
         } yield items
-      }
+      
 
-      program.unsafeRunSync() shouldBe QueryResponse(List(expectedUser1), None)
+      prog.eval(interpreter).unsafeRunSync() shouldBe QueryResponse(List(expectedUser1), None)
     }
   }
 }

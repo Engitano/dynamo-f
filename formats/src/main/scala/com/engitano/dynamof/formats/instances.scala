@@ -3,12 +3,13 @@ package com.engitano.dynamof.formats
 import cats.syntax.functor._
 import cats.Contravariant
 import cats.Functor
+import cats.data.Validated
 
 trait FromDynamoValueInstances {
 
-    implicit def catsDataFunctorForFromDynamoValue[F[_]: Functor] = new Functor[FromDynamoValue[F, ?]] {
-        def map[A, B](fa: FromDynamoValue[F, A])(f: A => B): FromDynamoValue[F, B] = new FromDynamoValue[F, B] {
-            def from(av: DynamoValue): F[B] = fa.from(av).map(f)
+    implicit def catsDataFunctorForFromDynamoValue = new Functor[FromDynamoValue] {
+        def map[A, B](fa: FromDynamoValue[A])(f: A => B): FromDynamoValue[B] = new FromDynamoValue[B] {
+            def from(av: DynamoValue): Either[DynamoUnmarshallException, B] = fa.from(av).map(f)
         }
     }
 }

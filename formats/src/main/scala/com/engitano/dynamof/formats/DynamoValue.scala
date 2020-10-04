@@ -11,6 +11,7 @@ import cats.Functor
 import cats.ApplicativeError
 import cats.syntax.functor._
 
+
 object ToDynamoValue {
   def apply[A](implicit tav: ToDynamoValue[A]) = tav
 }
@@ -27,11 +28,11 @@ trait ToDynamoMap[A] {
 }
 
 object FromDynamoValue {
-  def apply[F[_], A](implicit fav: FromDynamoValue[F, A]) = fav
+  def apply[A](implicit fav: FromDynamoValue[A]) = fav
 }
 
-trait FromDynamoValue[F[_], A] {
-  def from(av: DynamoValue): F[A]
+trait FromDynamoValue[A] {
+  def from(av: DynamoValue): Either[DynamoUnmarshallException, A]
 }
 
 trait ToDocument[F[_], T] {

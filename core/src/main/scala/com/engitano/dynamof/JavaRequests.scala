@@ -7,6 +7,7 @@ import cats.instances.option._
 import software.amazon.awssdk.services.dynamodb.model.{
   PutItemRequest => JPutItemRequest,
   CreateTableRequest => JCreateTableRequest,
+  UpdateTableRequest => JUpdateTableRequest,
   GetItemRequest => JGetItemRequest,
   AttributeDefinition => JAttributeDefinition,
   ProvisionedThroughput => JProvisionedThroughput,
@@ -25,8 +26,14 @@ import cats.data.OptionT
 import cats.data.State
 import cats.arrow.FunctionK
 import cats.Eval
+import software.amazon.awssdk.services.dynamodb.model.Replica
+import software.amazon.awssdk.services.dynamodb.model.ReplicationGroupUpdate
+import software.amazon.awssdk.services.dynamodb.model.CreateReplicationGroupMemberAction
+import software.amazon.awssdk.services.dynamodb.model.Projection
+import software.amazon.awssdk.services.dynamodb.model.ProjectionType
 
 private object JavaRequests {
+
   def to(req: PutItemRequest): JPutItemRequest =
     JPutItemRequest
       .builder()
@@ -34,14 +41,55 @@ private object JavaRequests {
       .item(req.document.toAttributeValue.m())
       .build()
 
-  def to(req: CreateTableRequest): JCreateTableRequest =
-    JCreateTableRequest
+  def to(req: CreateTableRequest): JCreateTableRequest = {
+    val builder = JCreateTableRequest
       .builder()
       .tableName(req.name)
-      .attributeDefinitions(toAttributeDefinitions(req.pk): _*)
+      .attributeDefinitions(toAttributeDefinitions(Seq(req.pk) ++ req.globalIndexes.map(_.key) ++ req.localIndexes.map(_.key): _*): _*)
       .keySchema(toKeySchemaDefinitions(req.pk).asJava)
-      .provisionedThroughput(JProvisionedThroughput.builder().readCapacityUnits(req.readCapacity).writeCapacityUnits(req.writeCapacity).build())
-      .build()
+      .provisionedThroughput(
+        JProvisionedThroughput.builder().readCapacityUnits(req.readCapacity).writeCapacityUnits(req.writeCapacity).build()
+      )
+
+    val withLocalIndexes =
+      if (req.localIndexes.isEmpty) builder
+      else
+        builder
+          .localSecondaryIndexes(
+            req.localIndexes
+              .map(
+                ix =>
+                  JLocalSecondaryIndex
+                    .builder()
+                    .indexName(ix.name)                    
+                    .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
+                    .keySchema(toKeySchemaDefinitions(ix.key).asJava)
+                    .build()
+              )
+              .asJava
+          )
+    val withGlobalIndexes =
+      if (req.globalIndexes.isEmpty) builder
+      else
+        builder.globalSecondaryIndexes(
+          req.globalIndexes
+            .map(
+              ix =>
+                JGlobalSecondaryIndex
+                  .builder()
+                  .indexName(ix.name)
+                  .keySchema(toKeySchemaDefinitions(ix.key).asJava)
+                  .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
+                  .provisionedThroughput(
+                    JProvisionedThroughput.builder().readCapacityUnits(ix.readCapacity).writeCapacityUnits(ix.writeCapacity).build()
+                  )
+                  .build()
+            )
+            .asJava
+        )
+
+    withGlobalIndexes.build()
+  }
 
   def to(req: GetItemRequest[_]): JGetItemRequest =
     JGetItemRequest
@@ -57,14 +105,16 @@ private object JavaRequests {
       .key(req.key.toAttributeValue.m())
       .build()
 
-  def to(req: ListItemsRequest[_]): JQueryRequest =
-    JQueryRequest
+  def to(req: ListItemsRequest[_]): JQueryRequest = {
+    val builder = JQueryRequest
       .builder()
       .tableName(req.table)
       .keyConditionExpression(s"#hk=:hk")
       .expressionAttributeNames(Map("#hk" -> req.key._1).asJava)
       .expressionAttributeValues(Map(":hk" -> req.key._2.toAttributeValue).asJava)
-      .build()
+    val withIndex = req.index.fold(builder)(builder.indexName)
+    withIndex.build()
+  }
 
   def to(req: QueryRequest[_]): JQueryRequest = {
     val hashKeyAlias = "#hashKey"
@@ -74,16 +124,17 @@ private object JavaRequests {
     val valueAliases = Map(":0" -> req.key._2.toAttributeValue)
     val nameAliases  = Map(hashKeyAlias -> req.key._1)
 
-    val ((names, vals, v), query)            = predicateToFilter(req.queryExpression).run((nameAliases, valueAliases, 1)).value
-    val ((namesWithF, valsWithF, _), filter) = req.filterExpression.fold(((names, vals, v), ""))(fe => predicateToFilter(fe).run((names, vals, v)).value)
+    val ((names, vals, v), query) = predicateToFilter(req.queryExpression).run((nameAliases, valueAliases, 1)).value
+    val ((namesWithF, valsWithF, _), filter) =
+      req.filterExpression.fold(((names, vals, v), ""))(fe => predicateToFilter(fe).run((names, vals, v)).value)
 
     val initBuilder = builder
       .keyConditionExpression(s"$hashKeyExpr AND $query")
       .expressionAttributeValues(valsWithF.asJava)
-      .expressionAttributeNames(namesWithF.asJava)    
+      .expressionAttributeNames(namesWithF.asJava)
 
-    val withFilter = if(filter.isEmpty()) initBuilder else initBuilder.filterExpression(filter)
-    
+    val withFilter = if (filter.isEmpty()) initBuilder else initBuilder.filterExpression(filter)
+
     val withStartKey = req.startAt.fold(withFilter)(sa => withFilter.exclusiveStartKey(sa.toAttributeValue.m()))
 
     val withIndex = req.index.fold(withStartKey)(withStartKey.indexName)
@@ -95,10 +146,10 @@ private object JavaRequests {
     case AttributeDefinition(name, attrType) => JAttributeDefinition.builder().attributeName(name).attributeType(attrType).build()
   }
 
-  def toAttributeDefinitions(pk: PrimaryKey) = pk match {
+  def toAttributeDefinitions(pk: PrimaryKey*) = pk.flatMap {
     case SimpleKey(attr)      => Seq(toAttributeDefinition(attr))
     case CompositeKey(hk, rk) => Seq(toAttributeDefinition(hk), toAttributeDefinition(rk))
-  }
+  }.distinctBy(a => a.attributeName())
 
   def buildKeySchemaElement(name: String, keyType: KeyType) = KeySchemaElement.builder().keyType(keyType).attributeName(name).build
   def toKeySchemaDefinitions(pk: PrimaryKey) = pk match {

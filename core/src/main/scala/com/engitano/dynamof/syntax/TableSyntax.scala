@@ -1,5 +1,6 @@
 package com.engitano.dynamof.syntax
 
+import cats.free.Free.liftF
 import com.engitano.dynamof._
 import com.engitano.dynamof.formats._
 import shapeless.::
@@ -15,6 +16,8 @@ import shapeless.LabelledGeneric
 import shapeless.ops.record.Keys
 import shapeless.NotContainsConstraint
 import com.engitano.dynamof.Index._
+import software.amazon.awssdk.regions.Region
+import cats.free.Free
 
 trait TableSyntax {
 
@@ -52,15 +55,27 @@ trait TableSyntax {
         readCapacity: Long,
         writeCapacity: Long,
         localSecondaryIndexes: Seq[LocalSecondaryIndex],
-        globalSecondaryIndexes: Seq[GlobalSecondaryIndex]
-    )(implicit pk: IsPrimaryKey[KeyId, KeyValue]) =
-      CreateTableRequest(table, pk.primaryKeyDefinition, readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes)
+        globalSecondaryIndexes: Seq[GlobalSecondaryIndex],
+        replicaRegions: Seq[Region] = Seq()
+    )(implicit pk: IsPrimaryKey[KeyId, KeyValue]): DynamoOp[Unit] =
+      liftF[DynamoOpA, Unit](CreateTableRequest(table, pk.primaryKeyDefinition, readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions))
     def put(a: A)(implicit tdv: ToDynamoMap[A]) =
-      PutItemRequest(table, tdv.to(a))
+      liftF[DynamoOpA, Unit](PutItemRequest(table, tdv.to(a)))
     def delete(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue]) =
-      DeleteItemRequest(table, k.primaryKey(h))
-    def get(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue]) =
-      GetItemRequest[A](table, k.primaryKey(h))
+      liftF[DynamoOpA, Unit](DeleteItemRequest(table, k.primaryKey(h)))
+    def get(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue], fdv: FromDynamoValue[A]): DynamoOp[Option[A]] =
+      liftF[DynamoOpA, Option[A]](GetItemRequest[A](table, k.primaryKey(h), fdv))
+    def createIfNotExists(
+        readCapacity: Long,
+        writeCapacity: Long,
+        localSecondaryIndexes: Seq[LocalSecondaryIndex],
+        globalSecondaryIndexes: Seq[GlobalSecondaryIndex],
+        replicaRegions: Seq[Region] = Seq()
+    )(implicit pk: IsPrimaryKey[KeyId, KeyValue]): DynamoOp[Unit] = liftF(DescribeTableRequest(table)).flatMap {
+      case Some(s) => Free.pure(())
+      case None => create(readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions)
+    }
+    def drop(): DynamoOp[Unit] = liftF(DeleteTableRequest(table))
   }
 
   trait IndexOps[A, KeyId, KeyValue, IXT <: IndexType] {
@@ -85,9 +100,10 @@ trait TableSyntax {
     val index: Option[String]
 
     def list[HK <: Symbol, HV, RK <: Symbol, RV](h: HV, startAt: Option[RV] = None)(
-        implicit k: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV]
-    ) =
-      ListItemsRequest[A](table, k.hashKey(h).m.head, startAt.map(rv => k.primaryKey((h, rv))))
+        implicit k: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV], fdv: FromDynamoValue[A]
+    ): DynamoOp[QueryResponse[A]] =
+      liftF[DynamoOpA, QueryResponse[A]](ListItemsRequest[A](table, k.hashKey(h).m.head, startAt.map(rv => k.primaryKey((h, rv))), index, fdv))
+      
     def query[
         HK <: Symbol,
         RK <: Symbol,
@@ -112,16 +128,18 @@ trait TableSyntax {
         qFields: Keys.Aux[F, QK],
         ev: BasisConstraint[QK, AK],
         nhk: NotContainsConstraint[QK, HK],
-        nrk: NotContainsConstraint[QK, RK]
-    ) =
-      QueryRequest[A](
+        nrk: NotContainsConstraint[QK, RK], 
+        fdv: FromDynamoValue[A]
+    ): DynamoOp[QueryResponse[A]] =
+      liftF[DynamoOpA, QueryResponse[A]](QueryRequest[A](
         table,
         ck.hashKey(key).m.head,
         rangeKeyPredicate.toPredicate(wr.value.name),
         limit,
         tp.to(filterPredicate),
         startAt.map(ck.primaryKey),
-        index
-      )
+        index,
+        fdv
+      ))
   }
 }

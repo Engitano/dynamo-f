@@ -26,11 +26,17 @@ import cats.kernel.Monoid
 import cats.MonoidK
 import java.time.OffsetDateTime
 
-case object EmptyStringException          extends Throwable
-case object AttributeValueFormatException extends Throwable
-case class BaseCaseNotPossibleException(fieldname: String, dv: DynamoValue)  extends Throwable {
+sealed trait DynamoUnmarshallException extends Throwable
+case object EmptyStringException          extends DynamoUnmarshallException
+case object AttributeValueFormatException extends DynamoUnmarshallException
+case class BaseCaseNotPossibleException(fieldname: String, dv: DynamoValue)  extends DynamoUnmarshallException {
   override def getMessage(): String = s"Cannot generate type class for field name $fieldname and dynamo value $dv"
 }
+
+case class UnknownMarshallingException(cause: String)  extends DynamoUnmarshallException {
+  override def getMessage(): String = cause
+}
+
 
 private[formats] object DateFormats {
   val zonedFormatter      = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -120,95 +126,91 @@ trait LowPriorityFromAttributeValue {
 
   import DynamoValue._
 
-  private def attempt[F[_], T](f: PartialFunction[DynamoValue, T])(implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, T] =
-    new FromDynamoValue[F, T] {
-      def from(dv: DynamoValue) = Try(f.lift(dv)).toEither match {
-        case Right(Some(d)) => F.pure(d)
-        case _              => F.raiseError(AttributeValueFormatException)
-      }
+  private def attempt[T](f: PartialFunction[DynamoValue, T]): FromDynamoValue[T] =
+    new FromDynamoValue[T] {
+      def from(dv: DynamoValue) = (Try(f.lift(dv)).toEither match {
+        case Right(Some(d)) => Right(d)
+        case _              => Left(AttributeValueFormatException)
+      })
     }
 
-  private def attemptF[F[_], T](f: PartialFunction[DynamoValue, F[T]])(implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, T] =
-    new FromDynamoValue[F, T] {
-      def from(dv: DynamoValue) = Try(f.lift(dv)).toEither match {
-        case Right(Some(d)) => d
-        case _              => F.raiseError(AttributeValueFormatException)
-      }
+  private def attemptEither[T](f: PartialFunction[DynamoValue, Either[Throwable, T]]): FromDynamoValue[T] =
+    new FromDynamoValue[T] {
+      def from(dv: DynamoValue) = Try(f.lift(dv)).toEither.flatMap {
+        case Some(d) => d
+        case _              => Left(AttributeValueFormatException)
+      }.leftMap(_ => AttributeValueFormatException)
     }
 
-  implicit def fromAttributeValueForBool[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, Boolean] =
-    attempt[F, Boolean] {
+  implicit val fromAttributeValueForBool: FromDynamoValue[Boolean] =
+    attempt[Boolean] {
       case Bool(b) => b
     }
 
-  implicit def fromAttributeValueForInt[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, Int] = attempt {
+  implicit val fromAttributeValueForInt: FromDynamoValue[Int] = attempt {
     case N(n) => n.toInt
   }
-  implicit def fromAttributeValueForLong[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, Long] = attempt {
+  implicit val fromAttributeValueForLong: FromDynamoValue[Long] = attempt {
     case N(n) => n.toLong
   }
-  implicit def fromAttributeValueForFloat[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, Float] = attempt {
+  implicit val fromAttributeValueForFloat: FromDynamoValue[Float] = attempt {
     case N(n) => n.toFloat
   }
-  implicit def fromAttributeValueForDouble[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, Double] = attempt {
+  implicit val fromAttributeValueForDouble: FromDynamoValue[Double] = attempt {
     case N(n) => n.toDouble
   }
 
-  implicit def fromAttributeValueForString[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, String] = attempt {
+  implicit val fromAttributeValueForString: FromDynamoValue[String] = attempt {
     case S(s) => s
   }
 
-  implicit def fromAttributeValueForNonEmptyString[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, DynamoString] =
-    attemptF {
-      case S(s) if (s.length() > 0) => F.fromEither(refineV[NonEmpty](s).leftMap(_ => EmptyStringException))
+  implicit val fromAttributeValueForNonEmptyString: FromDynamoValue[DynamoString] =
+    attemptEither {
+      case S(s) if (s.length() > 0) => refineV[NonEmpty](s).leftMap(_ => EmptyStringException)
     }
 
-  implicit def fromAttributeValueForLocalDate[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, LocalDate] = attemptF {
-    case S(s) => F.catchNonFatal(LocalDate.parse(s, DateFormats.localDateFormatter))
+  implicit val fromAttributeValueForLocalDate: FromDynamoValue[LocalDate] = attemptEither {
+    case S(s) => Either.catchNonFatal(LocalDate.parse(s, DateFormats.localDateFormatter))
   }
 
-  implicit def fromAttributeValueForLocalDateTime[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, LocalDateTime] =
+  implicit val fromAttributeValueForLocalDateTime: FromDynamoValue[LocalDateTime] =
     attempt {
       case S(s) => LocalDateTime.parse(s, DateFormats.localTimedFormatter)
     }
 
-  implicit def fromAttributeValueForZonedDateTime[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, ZonedDateTime] =
+  implicit val fromAttributeValueForZonedDateTime: FromDynamoValue[ZonedDateTime] =
     attempt {
       case S(s) => ZonedDateTime.parse(s, DateFormats.zonedFormatter)
     }
 
-  implicit def fromAttributeValueForOffsetDateTime[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, OffsetDateTime] =
+  implicit val fromAttributeValueForOffsetDateTime: FromDynamoValue[OffsetDateTime] =
     attempt {
       case S(s) => OffsetDateTime.parse(s, DateFormats.zonedFormatter)
     }
 
-  implicit def fromAttributeValueForSeq[F[_], A](
-      implicit F: ApplicativeError[F, Throwable],
-      fda: FromDynamoValue[F, A]
-  ): FromDynamoValue[F, Seq[A]] =
-    attemptF {
+  implicit def fromAttributeValueForSeq[A](implicit
+      fda: FromDynamoValue[A]
+  ): FromDynamoValue[Seq[A]] =
+    attemptEither {
       case L(s)  => s.traverse(fda.from).map(_.toSeq)
-      case Empty => F.pure(Seq())
+      case Empty => Right(Seq())
     }
 
-  implicit def fromAttributeValueForList[F[_], A](
-      implicit F: ApplicativeError[F, Throwable],
-      fda: FromDynamoValue[F, A]
-  ): FromDynamoValue[F, List[A]] = fromAttributeValueForSeq[F, A].map(_.toList)
+  implicit def fromAttributeValueForList[A](implicit
+      fda: FromDynamoValue[A]
+  ): FromDynamoValue[List[A]] = fromAttributeValueForSeq[A](fda).map(_.toList)
 
 
-  implicit def fromAttributeValueForSet[F[_], A](
-      implicit F: ApplicativeError[F, Throwable],
-      fda: FromDynamoValue[F, A]
-  ): FromDynamoValue[F, Set[A]] = fromAttributeValueForSeq[F, A].map(_.toSet)
+  implicit def fromAttributeValueForSet[A](implicit
+      fda: FromDynamoValue[A]
+  ): FromDynamoValue[Set[A]] = fromAttributeValueForSeq[A](fda).map(_.toSet)
 
-  implicit def fromAttributeValueForMap[F[_]: CommutativeApplicative, A](
-      implicit F: ApplicativeError[F, Throwable],
-      fda: FromDynamoValue[F, A]
-  ): FromDynamoValue[F, Map[String, A]] =
-    attemptF {
-      case M(s)  => s.unorderedTraverse(fda.from)
-      case Empty => F.pure(Map[String, A]())
+  implicit def fromAttributeValueForMap[A](implicit
+      fda: FromDynamoValue[A]
+  ): FromDynamoValue[Map[String, A]] =
+    attemptEither {
+      case M(s)  => s.toList.traverse(p => fda.from(p._2).map(r => p._1 -> r)).map(_.toMap)
+      case Empty => Right(Map[String, A]())
     }
 }
 
@@ -249,64 +251,60 @@ trait AutoToAttributeValue {
     }
 }
 
-trait AutoFromAttributeValue {
+trait CaseClassDerivations {
 
   import DynamoValue._
 
-  implicit def fromAttributeValueForHNil[F[_]](implicit F: Applicative[F]): FromDynamoValue[F, HNil] = new FromDynamoValue[F, HNil] {
-    def from(av: DynamoValue): F[HNil] = F.pure(HNil)
+  implicit def fromAttributeValueForHNil: FromDynamoValue[HNil] = new FromDynamoValue[HNil] {
+    def from(av: DynamoValue): Either[DynamoUnmarshallException, HNil] = Right(HNil)
   }
 
-  implicit def fromAttributeValueForHConsOption[F[_], Key <: Symbol, H, T <: HList](
-      implicit F: MonadError[F, Throwable],
+  implicit def fromAttributeValueForHConsOption[ Key <: Symbol, H, T <: HList](implicit
       key: Witness.Aux[Key],
-      th: Lazy[FromDynamoValue[F, H]],
-      tt: Lazy[FromDynamoValue[F, T]]
-  ): FromDynamoValue[F, FieldType[Key, Option[H]] :: T] = new FromDynamoValue[F, FieldType[Key, Option[H]] :: T] {
-    def from(av: DynamoValue): F[labelled.FieldType[Key, Option[H]] :: T] = av match {
+      th: Lazy[FromDynamoValue[H]],
+      tt: Lazy[FromDynamoValue[T]]
+  ): FromDynamoValue[FieldType[Key, Option[H]] :: T] = new FromDynamoValue[FieldType[Key, Option[H]] :: T] {
+    def from(av: DynamoValue): Either[DynamoUnmarshallException, labelled.FieldType[Key, Option[H]] :: T] = av match {
       case M(m) =>
-        val v: F[FieldType[Key, Option[H]]] = (m
-          .get(key.value.name) match {
-          case Some(Null) => F.pure(none[H])
+        val v: Either[DynamoUnmarshallException, FieldType[Key, Option[H]]] = (m.get(key.value.name) match {
+          case Some(Null) => Right(none[H])
           case Some(v)    => th.value.from(v).map(_.some)
-          case None       => F.pure(none[H])
+          case None       => Right(none[H])
         }).map(v => field[Key](v))
 
         val t = tt.value.from(av)
         (v, t).tupled.map {
           case (v, t) => v :: t
         }
-      case _ => F.raiseError(BaseCaseNotPossibleException(key.value.name, av))
+      case _ => Left(BaseCaseNotPossibleException(key.value.name, av))
     }
   }
 
-  implicit def fromAttributeValueForHCons[F[_], Key <: Symbol, H, T <: HList](
-      implicit F: MonadError[F, Throwable],
+  implicit def fromAttributeValueForHCons[Key <: Symbol, H, T <: HList](implicit 
       key: Witness.Aux[Key],
-      th: Lazy[FromDynamoValue[F, H]],
-      tt: Lazy[FromDynamoValue[F, T]]
-  ): FromDynamoValue[F, FieldType[Key, H] :: T] = new FromDynamoValue[F, FieldType[Key, H] :: T] {
-    def from(av: DynamoValue): F[labelled.FieldType[Key, H] :: T] = av match {
+      th: Lazy[FromDynamoValue[H]],
+      tt: Lazy[FromDynamoValue[T]]
+  ): FromDynamoValue[FieldType[Key, H] :: T] = new FromDynamoValue[FieldType[Key, H] :: T] {
+    def from(av: DynamoValue): Either[DynamoUnmarshallException, labelled.FieldType[Key, H] :: T] = av match {
       case M(m) =>
         val v = m
           .get(key.value.name)
           .toRight(AttributeValueFormatException)
-          .liftTo[F]
           .flatMap(th.value.from)
           .map(v => field[Key](v))
         val t = tt.value.from(av)
         (v, t).tupled.map {
           case (v, t) => v :: t
         }
-      case _ => F.raiseError(BaseCaseNotPossibleException(key.value.name, av))
+      case _ => Left(BaseCaseNotPossibleException(key.value.name, av))
     }
   }
 
-  implicit def fromAttributeValueForGeneric[F[_]: MonadError[?[_], Throwable], T, R <: HList](
+  implicit def fromAttributeValueForGeneric[T, R <: HList](
       implicit gen: LabelledGeneric.Aux[T, R],
-      fav: Lazy[FromDynamoValue[F, R]]
-  ): FromDynamoValue[F, T] = new FromDynamoValue[F, T] {
-    def from(av: DynamoValue): F[T] = fav.value.from(av).map(gen.from)
+      fav: Lazy[FromDynamoValue[R]]
+  ): FromDynamoValue[T] = new FromDynamoValue[T] {
+    def from(av: DynamoValue): Either[DynamoUnmarshallException, T] = fav.value.from(av).map(gen.from)
   }
 }
 
@@ -338,34 +336,33 @@ trait SumTypeDerivations {
       final def to(av: A) = genericFormat.to(gen.to(av))
     }
 
-  implicit def fromDynamoValueCNil[F[_]](implicit F: ApplicativeError[F, Throwable]): FromDynamoValue[F, CNil] =
-    new FromDynamoValue[F, CNil] {
-      def from(a: DynamoValue): F[CNil] = F.raiseError(new Exception(s"Canot serializer ${a} to CNil"))
+  implicit def fromDynamoValueCNil: FromDynamoValue[CNil] =
+    new FromDynamoValue[CNil] {
+      def from(a: DynamoValue): Either[DynamoUnmarshallException, CNil] = Left(UnknownMarshallingException(s"Canot serializer ${a} to CNil"))
     }
 
-  implicit def fromDynamoValueCCons[F[_], K <: Symbol, V, R <: Coproduct](
+  implicit def fromDynamoValueCCons[K <: Symbol, V, R <: Coproduct](
       implicit
       fieldWitness: Witness.Aux[K],
-      headGen: Lazy[FromDynamoValue[F, V]],
-      tdvR: Lazy[FromDynamoValue[F, R]],
-      F: ApplicativeError[F, Throwable]
-  ): FromDynamoValue[F, FieldType[K, V] :+: R] = new FromDynamoValue[F, FieldType[K, V] :+: R] {
-    def from(dv: DynamoValue): F[labelled.FieldType[K, V] :+: R] = dv match {
+      headGen: Lazy[FromDynamoValue[V]],
+      tdvR: Lazy[FromDynamoValue[R]]
+  ): FromDynamoValue[FieldType[K, V] :+: R] = new FromDynamoValue[FieldType[K, V] :+: R] {
+    def from(dv: DynamoValue): Either[DynamoUnmarshallException, labelled.FieldType[K, V] :+: R] = dv match {
       case DynamoValue.M(m) if (m.head._1 == fieldWitness.value.name) =>
         headGen.value.from(m.head._2).map(h => Inl(field[K](h)))
       case DynamoValue.M(m) => tdvR.value.from(dv).map(v => Inr(v))
-      case _                => F.raiseError(new Exception(s"Cannot deserialize ${dv}"))
+      case _                => Left(new UnknownMarshallingException(s"Cannot deserialize object ${dv}"))
     }
   }
 
-  implicit def fromDynamoValueForFamilies[F[_]: Functor, A, Repr <: Coproduct](
+  implicit def fromDynamoValueForFamilies[A, Repr <: Coproduct](
       implicit
       notOpt: A <:!< Option[_], // Options are handled with fromAttributeValueForHConsOption
       notList: A <:!< List[_],  // Options are handled with fromAttributeValueForHConsOption
       gen: LabelledGeneric.Aux[A, Repr],
-      genericFormat: Lazy[FromDynamoValue[F, Repr]]
-  ): FromDynamoValue[F, A] =
-    new FromDynamoValue[F, A] {
+      genericFormat: Lazy[FromDynamoValue[Repr]]
+  ): FromDynamoValue[A] =
+    new FromDynamoValue[A] {
       def from(dv: DynamoValue) = genericFormat.value.from(dv).map(gen.from)
     }
 }
@@ -374,5 +371,5 @@ object auto
     extends LowPriorityToAttributeValue
     with LowPriorityFromAttributeValue
     with AutoToAttributeValue 
-    with AutoFromAttributeValue
+    with CaseClassDerivations
     with SumTypeDerivations
