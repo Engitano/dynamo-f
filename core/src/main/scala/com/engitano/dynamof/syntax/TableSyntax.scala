@@ -1,6 +1,7 @@
 package com.engitano.dynamof.syntax
 
 import cats.free.Free.liftF
+import cats.free.FreeApplicative.lift
 import com.engitano.dynamof._
 import com.engitano.dynamof.formats._
 import shapeless.::
@@ -18,8 +19,17 @@ import shapeless.NotContainsConstraint
 import com.engitano.dynamof.Index._
 import software.amazon.awssdk.regions.Region
 import cats.free.Free
+import cats.free.FreeApplicative
+
 
 trait TableSyntax {
+
+  def liftE[F[_], A](op: DynamoOpA[A]) = new ExecutionStrategy[A] {
+
+    override def seq: com.engitano.dynamof.DynamoOp[A] = liftF(lift(op))
+
+    override def par: FreeApplicative[DynamoOpA,A] = lift(op)    
+  }
 
   implicit def toTableOps[A, KeyId, KeyValue](
       tbl: Table.Aux[A, KeyId, KeyValue]
@@ -57,25 +67,25 @@ trait TableSyntax {
         localSecondaryIndexes: Seq[LocalSecondaryIndex],
         globalSecondaryIndexes: Seq[GlobalSecondaryIndex],
         replicaRegions: Seq[Region] = Seq()
-    )(implicit pk: IsPrimaryKey[KeyId, KeyValue]): DynamoOp[Unit] =
-      liftF[DynamoOpA, Unit](CreateTableRequest(table, pk.primaryKeyDefinition, readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions))
+    )(implicit pk: IsPrimaryKey[KeyId, KeyValue]) =
+      liftE[DynamoOpA, Unit](CreateTableRequest(table, pk.primaryKeyDefinition, readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions))
     def put(a: A)(implicit tdv: ToDynamoMap[A]) =
-      liftF[DynamoOpA, Unit](PutItemRequest(table, tdv.to(a)))
+      liftE[DynamoOpA, Unit](PutItemRequest(table, tdv.to(a)))
     def delete(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue]) =
-      liftF[DynamoOpA, Unit](DeleteItemRequest(table, k.primaryKey(h)))
-    def get(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue], fdv: FromDynamoValue[A]): DynamoOp[Option[A]] =
-      liftF[DynamoOpA, Option[A]](GetItemRequest[A](table, k.primaryKey(h), fdv))
+      liftE[DynamoOpA, Unit](DeleteItemRequest(table, k.primaryKey(h)))
+    def get(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue], fdv: FromDynamoValue[A]) =
+      liftE[DynamoOpA, Option[A]](GetItemRequest[A](table, k.primaryKey(h), fdv))
     def createIfNotExists(
         readCapacity: Long,
         writeCapacity: Long,
         localSecondaryIndexes: Seq[LocalSecondaryIndex],
         globalSecondaryIndexes: Seq[GlobalSecondaryIndex],
         replicaRegions: Seq[Region] = Seq()
-    )(implicit pk: IsPrimaryKey[KeyId, KeyValue]): DynamoOp[Unit] = liftF(DescribeTableRequest(table)).flatMap {
+    )(implicit pk: IsPrimaryKey[KeyId, KeyValue]) = liftE(DescribeTableRequest(table)).seq.flatMap {
       case Some(s) => Free.pure(())
-      case None => create(readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions)
+      case None => create(readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions).seq
     }
-    def drop(): DynamoOp[Unit] = liftF(DeleteTableRequest(table))
+    def drop() = liftE(DeleteTableRequest(table))
   }
 
   trait IndexOps[A, KeyId, KeyValue, IXT <: IndexType] {
@@ -101,8 +111,8 @@ trait TableSyntax {
 
     def list[HK <: Symbol, HV, RK <: Symbol, RV](h: HV, startAt: Option[RV] = None)(
         implicit k: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV], fdv: FromDynamoValue[A]
-    ): DynamoOp[QueryResponse[A]] =
-      liftF[DynamoOpA, QueryResponse[A]](ListItemsRequest[A](table, k.hashKey(h).m.head, startAt.map(rv => k.primaryKey((h, rv))), index, fdv))
+    ) =
+      liftE[DynamoOpA, QueryResponse[A]](ListItemsRequest[A](table, k.hashKey(h).m.head, startAt.map(rv => k.primaryKey((h, rv))), index, fdv))
       
     def query[
         HK <: Symbol,
@@ -130,8 +140,8 @@ trait TableSyntax {
         nhk: NotContainsConstraint[QK, HK],
         nrk: NotContainsConstraint[QK, RK], 
         fdv: FromDynamoValue[A]
-    ): DynamoOp[QueryResponse[A]] =
-      liftF[DynamoOpA, QueryResponse[A]](QueryRequest[A](
+    ) =
+      liftE[DynamoOpA, QueryResponse[A]](QueryRequest[A](
         table,
         ck.hashKey(key).m.head,
         rangeKeyPredicate.toPredicate(wr.value.name),

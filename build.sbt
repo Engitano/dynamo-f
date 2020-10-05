@@ -40,8 +40,7 @@ lazy val `dynamo-f-formats` = (project in file("formats"))
       Dependencies.scalacheckAuto % "test"
     ),
     bintrayOrganization := Some("engitano"),
-    bintrayPackageLabels := Seq("dynamodb", "fs2", "cats"),
-    addCompilerPlugin("io.tryp" % "splain" % "0.5.7" cross CrossVersion.patch)
+    bintrayPackageLabels := Seq("dynamodb", "fs2", "cats")
   )
 
 lazy val `dynamo-f`: Project = (project in file("core"))

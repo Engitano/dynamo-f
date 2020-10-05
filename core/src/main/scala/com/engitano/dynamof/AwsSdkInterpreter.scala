@@ -5,6 +5,7 @@ import com.engitano.dynamof.syntax.all._
 import cats.instances.either._
 import cats.instances.list._
 import cats.~>
+import cats.syntax.apply._
 import cats.syntax.applicativeError._
 import cats.syntax.either._
 import cats.syntax.functor._
@@ -20,6 +21,8 @@ import software.amazon.awssdk.services.dynamodb.model.{DescribeTableRequest => J
 import software.amazon.awssdk.services.dynamodb.model.TableDescription
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 import cats.effect.Sync
+import cats.effect.IO
+import cats.effect.Concurrent
 
 object AwsSdkInterpreter {
   def apply[F[_]](client: DynamoDbAsyncClient)(implicit F: Async[F]): DynamoOpA ~> F = new (DynamoOpA ~> F) {
@@ -33,7 +36,7 @@ object AwsSdkInterpreter {
             .handleErrorWith {
               case _: ResourceNotFoundException => Sync[F].pure(none[TableDescription])
               case t                            => Sync[F].raiseError(t)
-            }
+            }            
         case req: CreateTableRequest =>
           client
             .createTable(JavaRequests.to(req))
