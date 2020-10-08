@@ -149,7 +149,7 @@ private object JavaRequests {
   def toAttributeDefinitions(pk: PrimaryKey*) = pk.flatMap {
     case SimpleKey(attr)      => Seq(toAttributeDefinition(attr))
     case CompositeKey(hk, rk) => Seq(toAttributeDefinition(hk), toAttributeDefinition(rk))
-  }.distinctBy(a => a.attributeName())
+  }.groupBy(_.attributeName()).map(_._2.head)
 
   def buildKeySchemaElement(name: String, keyType: KeyType) = KeySchemaElement.builder().keyType(keyType).attributeName(name).build
   def toKeySchemaDefinitions(pk: PrimaryKey) = pk match {
