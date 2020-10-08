@@ -5,13 +5,12 @@ import shapeless.HList
 
 package object syntax {
 
-  trait AllSyntax extends TableSyntax with ToScalarAttrInstances with FilterSyntax with ToPredicateInstances with IsPrimaryKeySyntax with FieldNamesSyntax with CompletableFutureSyntax
+  trait AllSyntax extends TableSyntax with ToScalarAttrInstances with FilterSyntax with ToPredicateInstances with IsPrimaryKeySyntax with FieldNamesSyntax
 
   object table              extends TableSyntax
   object isPrimaryKey       extends IsPrimaryKeySyntax
   object filter             extends FilterSyntax
   object scalarAttributes   extends ToScalarAttrInstances
-  object completableFutures extends CompletableFutureSyntax
   object all                extends AllSyntax
 }
 

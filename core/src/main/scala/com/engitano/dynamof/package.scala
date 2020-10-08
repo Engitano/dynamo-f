@@ -12,17 +12,6 @@ import cats.NonEmptyParallel
 
 package object dynamof {
 
-    object ExecutionStrategy {
-        def unit = new ExecutionStrategy[Unit] {
-            def par: FreeApplicative[DynamoOpA,Unit] = FreeApplicative.pure(())
-            def seq: DynamoOp[Unit] = Free.pure(())
-        }
-    }
-    trait ExecutionStrategy[A] {
-        def seq: DynamoOp[A]
-        def par: FreeApplicative[DynamoOpA, A]
-    }
-
 
     type DynamoOp[A] = Free[FreeApplicative[DynamoOpA, ?], A]
 

@@ -24,12 +24,6 @@ import cats.free.FreeApplicative
 
 trait TableSyntax {
 
-  def liftE[F[_], A](op: DynamoOpA[A]) = new ExecutionStrategy[A] {
-
-    override def seq: com.engitano.dynamof.DynamoOp[A] = liftF(lift(op))
-
-    override def par: FreeApplicative[DynamoOpA,A] = lift(op)    
-  }
 
   implicit def toTableOps[A, KeyId, KeyValue](
       tbl: Table.Aux[A, KeyId, KeyValue]
@@ -68,24 +62,36 @@ trait TableSyntax {
         globalSecondaryIndexes: Seq[GlobalSecondaryIndex],
         replicaRegions: Seq[Region] = Seq()
     )(implicit pk: IsPrimaryKey[KeyId, KeyValue]) =
-      liftE[DynamoOpA, Unit](CreateTableRequest(table, pk.primaryKeyDefinition, readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions))
+      liftF(lift[DynamoOpA, Unit](CreateTableRequest(table, pk.primaryKeyDefinition, readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions)))
     def put(a: A)(implicit tdv: ToDynamoMap[A]) =
-      liftE[DynamoOpA, Unit](PutItemRequest(table, tdv.to(a)))
+      liftF(lift[DynamoOpA, Unit](PutItemRequest(table, tdv.to(a))))
     def delete(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue]) =
-      liftE[DynamoOpA, Unit](DeleteItemRequest(table, k.primaryKey(h)))
+      liftF(lift[DynamoOpA, Unit](DeleteItemRequest(table, k.primaryKey(h))))
     def get(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue], fdv: FromDynamoValue[A]) =
-      liftE[DynamoOpA, Option[A]](GetItemRequest[A](table, k.primaryKey(h), fdv))
-    def createIfNotExists(
+      liftF(lift[DynamoOpA, Option[A]](GetItemRequest[A](table, k.primaryKey(h), fdv)))
+
+    def describe() = liftF(lift(DescribeTableRequest(table)))
+    def drop() = liftF(lift(DeleteTableRequest(table)))
+
+
+
+    def createP(
         readCapacity: Long,
         writeCapacity: Long,
         localSecondaryIndexes: Seq[LocalSecondaryIndex],
         globalSecondaryIndexes: Seq[GlobalSecondaryIndex],
         replicaRegions: Seq[Region] = Seq()
-    )(implicit pk: IsPrimaryKey[KeyId, KeyValue]) = liftE(DescribeTableRequest(table)).seq.flatMap {
-      case Some(s) => Free.pure(())
-      case None => create(readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions).seq
-    }
-    def drop() = liftE(DeleteTableRequest(table))
+    )(implicit pk: IsPrimaryKey[KeyId, KeyValue]) =
+      lift[DynamoOpA, Unit](CreateTableRequest(table, pk.primaryKeyDefinition, readCapacity, writeCapacity, localSecondaryIndexes, globalSecondaryIndexes, replicaRegions))
+    def putP(a: A)(implicit tdv: ToDynamoMap[A]) =
+      lift[DynamoOpA, Unit](PutItemRequest(table, tdv.to(a)))
+    def deleteP(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue]) =
+      lift[DynamoOpA, Unit](DeleteItemRequest(table, k.primaryKey(h)))
+    def getP(h: KeyValue)(implicit k: IsPrimaryKey[KeyId, KeyValue], fdv: FromDynamoValue[A]) =
+      lift[DynamoOpA, Option[A]](GetItemRequest[A](table, k.primaryKey(h), fdv))
+
+    def describeP() = lift((DescribeTableRequest(table)))
+    def dropP() = lift(DeleteTableRequest(table))
   }
 
   trait IndexOps[A, KeyId, KeyValue, IXT <: IndexType] {
@@ -112,7 +118,7 @@ trait TableSyntax {
     def list[HK <: Symbol, HV, RK <: Symbol, RV](h: HV, startAt: Option[RV] = None)(
         implicit k: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV], fdv: FromDynamoValue[A]
     ) =
-      liftE[DynamoOpA, QueryResponse[A]](ListItemsRequest[A](table, k.hashKey(h).m.head, startAt.map(rv => k.primaryKey((h, rv))), index, fdv))
+      liftF(lift[DynamoOpA, QueryResponse[A]](ListItemsRequest[A](table, k.hashKey(h).m.head, startAt.map(rv => k.primaryKey((h, rv))), index, fdv)))
       
     def query[
         HK <: Symbol,
@@ -141,7 +147,51 @@ trait TableSyntax {
         nrk: NotContainsConstraint[QK, RK], 
         fdv: FromDynamoValue[A]
     ) =
-      liftE[DynamoOpA, QueryResponse[A]](QueryRequest[A](
+      liftF(lift[DynamoOpA, QueryResponse[A]](QueryRequest[A](
+        table,
+        ck.hashKey(key).m.head,
+        rangeKeyPredicate.toPredicate(wr.value.name),
+        limit,
+        tp.to(filterPredicate),
+        startAt.map(ck.primaryKey),
+        index,
+        fdv
+      )))
+
+
+    def listP[HK <: Symbol, HV, RK <: Symbol, RV](h: HV, startAt: Option[RV] = None)(
+        implicit k: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV], fdv: FromDynamoValue[A]
+    ) =
+      lift[DynamoOpA, QueryResponse[A]](ListItemsRequest[A](table, k.hashKey(h).m.head, startAt.map(rv => k.primaryKey((h, rv))), index, fdv))
+      
+    def queryP[
+        HK <: Symbol,
+        RK <: Symbol,
+        AK <: HList,
+        QK <: HList,
+        HV,
+        RV,
+        F <: HList
+    ](
+        key: HV,
+        rangeKeyPredicate: FieldPredicate[RV],
+        filterPredicate: F = HNil,
+        limit: Option[Int] = None,
+        startAt: Option[KeyValue] = None
+    )(
+        implicit
+        ck: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV],
+        tdvr: ToDynamoValue[RV],
+        wr: Witness.Aux[RK],
+        tp: ToPredicate[F],
+        fields: FieldNames.Aux[A, AK],
+        qFields: Keys.Aux[F, QK],
+        ev: BasisConstraint[QK, AK],
+        nhk: NotContainsConstraint[QK, HK],
+        nrk: NotContainsConstraint[QK, RK], 
+        fdv: FromDynamoValue[A]
+    ) =
+      lift[DynamoOpA, QueryResponse[A]](QueryRequest[A](
         table,
         ck.hashKey(key).m.head,
         rangeKeyPredicate.toPredicate(wr.value.name),

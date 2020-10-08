@@ -63,12 +63,12 @@ class CrudSpec extends WordSpec with Matchers {
       val get          = table.get(dyn"1")
 
       val prog = for {
-        _ <- table.create(1, 1, Seq(), Seq()).seq
-        g <- get.seq
-        _ <- table.put(expectedUser).seq
-        h <- get.seq
-        _ <- table.delete(dyn"1").seq
-        _ <- table.drop().seq
+        _ <- table.create(1, 1, Seq(), Seq())
+        g <- get
+        _ <- table.put(expectedUser)
+        h <- get
+        _ <- table.delete(dyn"1")
+        _ <- table.drop()
       } yield (g, h)
 
       prog.eval(interpreter).unsafeRunSync shouldBe (None, Some(expectedUser))
@@ -80,11 +80,11 @@ class CrudSpec extends WordSpec with Matchers {
       val joe = User(dyn"1", dyn"Joe", 30, 180)
 
       val prog = for {
-        _     <- table.create(1, 1, Seq(ix.definition), Seq()).seq
-        _     <- table.put(fred).seq
-        _     <- table.put(joe).seq
-        joe   <- ix.query(dyn"1", gt(dyn"J")).seq
-        _     <- table.drop().seq
+        _     <- table.create(1, 1, Seq(ix.definition), Seq())
+        _     <- table.put(fred)
+        _     <- table.put(joe)
+        joe   <- ix.query(dyn"1", gt(dyn"J"))
+        _     <- table.drop()
       } yield joe.results.headOption
 
       prog.eval(interpreter).unsafeRunSync() shouldBe Some(joe)
@@ -93,25 +93,25 @@ class CrudSpec extends WordSpec with Matchers {
     "Query items" in {
       val table         = Table[User]("users", 'id, 'name)
       val expectedUser1 = User(dyn"1", dyn"Fred", 25, 178)
-      val expectedUser2 = User(dyn"1", dyn"Michael", 32, 152)
+      val expectedUser2 = User(dyn"1", dyn"Fredderick", 32, 152)
       val expectedUser3 = User(dyn"1", dyn"Nick", 19, 181)
       val expectedUser4 = User(dyn"1", dyn"Zoe", 30, 183)
 
       val prog = for {
-        _ <- table.create(1, 1, Seq(), Seq()).seq
-        _ <- (table.put(expectedUser1).par, table.put(expectedUser2).par, table.put(expectedUser3).par, table.put(expectedUser4).par).tupled.seq
+        _ <- table.create(1, 1, Seq(), Seq())
+        _ <- (table.putP(expectedUser1), table.putP(expectedUser2), table.putP(expectedUser3), table.putP(expectedUser4)).tupled.seq
         items <- table.query(
           dyn"1",
           beginsWith(dyn"Fre"),
           'age > 20 and 'heightCms > 152,
           limit = Some(5),
           startAt = Some((dyn"1", dyn"Fre"))
-        ).seq
-        _ <- table.drop().seq
+        )
+        _ <- table.drop()
       } yield items
       
       //evalP enforces applicative operations are evaluated concurrently.
-      //evalP requires a Parallel[F] to ensure F has the required Applicative[F]
+      //evalP requires a Parallel[F] to ensure F has the required Applicative[?]
       //Parallel[F] for IO requires a contextShit
       implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4)))
       prog.evalP(interpreter).unsafeRunSync() shouldBe QueryResponse(List(expectedUser1), None)

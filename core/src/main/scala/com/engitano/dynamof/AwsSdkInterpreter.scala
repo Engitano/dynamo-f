@@ -23,54 +23,62 @@ import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 import cats.effect.Sync
 import cats.effect.IO
 import cats.effect.Concurrent
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
+
+object AsyncCF {
+  def wrap[F[_]: Async, A](cf: => CompletableFuture[A]): F[A] = Async[F].async(cb =>
+      cf.handle[Unit] { (a, t) =>
+        (Option(a), Option(t)) match {
+          case (Some(a), None) => cb(Right(a))
+          case (None, Some(e:CompletionException)) => cb(Left(e.getCause()))
+          case (None, Some(t)) => cb(Left(t))
+          case _               => cb(Left(new Exception("Impossible CompletableFuture State")))
+        }
+      })
+}
 
 object AwsSdkInterpreter {
   def apply[F[_]](client: DynamoDbAsyncClient)(implicit F: Async[F]): DynamoOpA ~> F = new (DynamoOpA ~> F) {
     def apply[A](fa: DynamoOpA[A]): F[A] =
       fa match {
         case DescribeTableRequest(name) =>
-          client
-            .describeTable(JDescribeTableRequest.builder().tableName(name).build())
-            .lift[F]
+          AsyncCF.wrap(client
+            .describeTable(JDescribeTableRequest.builder().tableName(name).build()))
             .map(r => r.table().some)
             .handleErrorWith {
               case _: ResourceNotFoundException => Sync[F].pure(none[TableDescription])
               case t                            => Sync[F].raiseError(t)
-            }            
+            }
         case req: CreateTableRequest =>
-          client
-            .createTable(JavaRequests.to(req))
-            .lift[F]
+          AsyncCF.wrap(client
+            .createTable(JavaRequests.to(req)))
             .as(())
         case DeleteTableRequest(name) =>
-          client
-            .deleteTable(JDeleteTableRequest.builder().tableName(name).build())
-            .lift[F]
+          AsyncCF.wrap(client
+            .deleteTable(JDeleteTableRequest.builder().tableName(name).build()))
             .as(())
         case req: GetItemRequest[_] =>
-          client
-            .getItem(JavaRequests.to(req))
-            .lift[F]
-            .flatMap { r =>
-              if (r.item().isEmpty())
-                F.pure(None)
-              else
-                req.fdv.from(DynamoValue.M.parse(r.item.asScala.toMap)).map(i => i.some).liftTo[F]
-            }
+          AsyncCF.wrap(
+            client
+              .getItem(JavaRequests.to(req)))
+              .flatMap { r =>
+                if (r.item().isEmpty())
+                  F.pure(None)
+                else
+                  req.fdv.from(DynamoValue.M.parse(r.item.asScala.toMap)).map(i => i.some).liftTo[F]
+              }
         case req: PutItemRequest =>
-          client
-            .putItem(JavaRequests.to(req))
-            .lift[F]
+          AsyncCF.wrap(client
+            .putItem(JavaRequests.to(req)))
             .as(())
         case req: DeleteItemRequest =>
-          client
-            .deleteItem(JavaRequests.to(req))
-            .lift[F]
+          AsyncCF.wrap(client
+            .deleteItem(JavaRequests.to(req)))
             .as(())
         case req: ListItemsRequest[_] =>
-          client
-            .query(JavaRequests.to(req))
-            .lift[F]
+          AsyncCF.wrap(client
+            .query(JavaRequests.to(req)))
             .map(r => (r.items().asScala.map(v => DynamoValue.M.parse(v.asScala.toMap)), r.lastEvaluatedKey()))
             .flatMap(
               f =>
@@ -80,9 +88,8 @@ object AwsSdkInterpreter {
                   .liftTo[F]
             )
         case req: QueryRequest[_] =>
-          client
-            .query(JavaRequests.to(req))
-            .lift[F]
+          AsyncCF.wrap(client
+            .query(JavaRequests.to(req)))
             .map(r => (r.items().asScala.map(v => DynamoValue.M.parse(v.asScala.toMap)), r.lastEvaluatedKey()))
             .flatMap(
               f =>

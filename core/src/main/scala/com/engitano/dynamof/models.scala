@@ -7,7 +7,7 @@ import software.amazon.awssdk.regions.Region
 import com.engitano.dynamof.formats.FromDynamoValue
 import software.amazon.awssdk.services.dynamodb.model.TableDescription
 
-trait DynamoOpA[A]
+sealed trait DynamoOpA[A]
 case class DescribeTableRequest(name: String) extends DynamoOpA[Option[TableDescription]]
 case class CreateTableRequest(
     name: String,

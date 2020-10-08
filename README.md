@@ -110,7 +110,7 @@ class CrudSpec extends WordSpec with Matchers {
       } yield items
       
       //evalP enforces applicative (".par") operations are evaluated concurrently.
-      //evalP requires a Parallel[F] to ensure F has the required Applicative[F]
+      //evalP requires a Parallel[F] to ensure F has a required Applicative[?]
       //Parallel[F] for IO requires a contextShit
       implicit val cs = IO.contextShift(scala.concurrent.ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4)))
       prog.evalP(interpreter).unsafeRunSync() shouldBe QueryResponse(List(expectedUser1), None)
