@@ -47,25 +47,6 @@ object Common {
         "-Xlint:private-shadow",         // A private field (or class parameter) shadows a superclass field.
         "-Xlint:stars-align",            // Pattern sequence wildcard must align with sequence component.
         "-Xlint:type-parameter-shadow",  // A local type parameter shadows a type already in scope.
-        "-Xlint:nonlocal-return",        // A return statement used an exception for flow control.
-        "-Xlint:implicit-not-found",     // Check @implicitNotFound and @implicitAmbiguous messages.
-        "-Xlint:implicit-recursion",     // Warn when an implicit resolves to an enclosing self-definition.
-        "-Xlint:serial",                 // @SerialVersionUID on traits and non-serializable classes.
-        "-Xlint:valpattern",             // Enable pattern checks in val definitions.
-        "-Xlint:eta-zero",               // Warn on eta-expansion (rather than auto-application) of zero-ary method.
-        "-Xlint:eta-sam",                // Warn on eta-expansion to meet a Java-defined functional interface that is not explicitly annotated with @FunctionalInterface.
-        "-Xlint:deprecation",            // Enable linted deprecations.
-        "-Wdead-code",                   // Warn when dead code is identified.
-        "-Wextra-implicit",              // Warn when more than one implicit parameter section is defined.
-        "-Wmacros:both",                 // Lints code before and after applying a macro
-        "-Wnumeric-widen",               // Warn when numerics are widened.
-        "-Woctal-literal",               // Warn on obsolete octal syntax.
-        "-Wunused:imports",              // Warn if an import selector is not referenced.
-        "-Wunused:patvars",              // Warn if a variable bound in a pattern is unused.
-        "-Wunused:privates",             // Warn if a private member is unused.
-        "-Wunused:locals",               // Warn if a local definition is unused.
-        "-Wunused:explicits",            // Warn if an explicit parameter is unused.
-        "-Wvalue-discard", // Warn when non-Unit expression results are unused.
         "-Ybackend-parallelism",
         "8",                                         // Enable paralellisation — change to desired number!
         "-Ycache-plugin-class-loader:last-modified", // Enables caching of classloaders for compiler plugins

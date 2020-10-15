@@ -210,7 +210,7 @@ trait AutoToAttributeValue {
   import DynamoValue._
 
   implicit def toDynamoMapForMap[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[Map[String, V]] = new ToDynamoMap[Map[String, V]] {
-    def to(av: Map[String, V]) = M(av.view.mapValues(tmv.to).toMap)
+    def to(av: Map[String, V]) = M(av.map { case (k,v) => k -> tmv.to(v) })
   }
 
   implicit def toDynamoMapForTuple[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[(String, V)] = new ToDynamoMap[(String, V)] {

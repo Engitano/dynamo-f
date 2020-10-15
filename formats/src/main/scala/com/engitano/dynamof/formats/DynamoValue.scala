@@ -63,12 +63,12 @@ object DynamoValue {
     else if (!a.ns.isEmpty) NS(a.ns.asScala.toSet.map(N(_)))
     else if (!a.bs.isEmpty) BS(a.bs.asScala.map(b => B(b.asByteBuffer)).toSet)
     else if (!a.l.isEmpty) L(a.l.asScala.map(parse).toList)
-    else if (!a.m.isEmpty()) M(a.m.asScala.view.mapValues(parse).toMap)
+    else if (!a.m.isEmpty()) M(a.m.asScala.map { case (k,v) => k -> parse(v) }.toMap)
     else DynamoValue.Empty
   }
 
   object M {
-    def parse(m: Map[String, AttributeValue]) : M = M(m.view.mapValues(v => DynamoValue.parse(v)).toMap)
+    def parse(m: Map[String, AttributeValue]) : M = M(m.map { case (k,v) => k -> DynamoValue.parse(v) }.toMap)
   }
 }
 
@@ -92,7 +92,7 @@ sealed abstract class DynamoValue {
     case NS(ns)  => AttributeValue.builder.ns(ns.map(_.n).asJavaCollection).build()
     case BS(bs)  => AttributeValue.builder.bs(bs.map(b => SdkBytes.fromByteBuffer(b.b)).asJavaCollection).build()
     case L(l)    => AttributeValue.builder.l(l.map(_.toAttributeValue).asJavaCollection).build()
-    case M(m)    => AttributeValue.builder.m(m.view.mapValues(_.toAttributeValue).toMap.asJava).build()
+    case M(m)    => AttributeValue.builder.m(m.map { case (k,v) => k -> v.toAttributeValue }.toMap.asJava).build()
     case Empty   => AttributeValue.builder.build()
   }
 }
