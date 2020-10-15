@@ -21,11 +21,11 @@
 
 package com.engitano.dynamof
 
-import com.engitano.dynamof.syntax._
-import com.engitano.dynamof.syntax.all._
-import com.engitano.dynamof.formats._
-import com.engitano.dynamof.formats.auto._
-import cats.syntax.apply._
+import com.engitano.dynamof._
+import com.engitano.dynamof.syntax.gt
+import com.engitano.dynamof.implicits._
+import com.engitano.dynamof.formats.DynamoString
+import com.engitano.dynamof.formats.implicits._
 import org.scalatest.WordSpec
 import org.scalatest.Matchers
 import com.engitano.dynamof.CrudSpec.User
@@ -33,6 +33,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import java.net.URI
 import software.amazon.awssdk.regions.Region
 import cats.effect.Async
+import cats.syntax.apply._
 import com.engitano.dynamof.syntax.beginsWith
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
@@ -71,13 +72,14 @@ class CrudSpec extends WordSpec with Matchers {
         _ <- table.drop()
       } yield (g, h)
 
-      prog.eval(interpreter).unsafeRunSync shouldBe (None, Some(expectedUser))
+      prog.eval(interpreter).unsafeRunSync shouldBe (None -> Some(expectedUser))
     }
     "List items" in {
       val table         = Table[User]("users", 'id, 'age)
       val ix = table.localSecondaryIndex("usersByName", 'name)
       val fred = User(dyn"1", dyn"Fred", 25, 180)
       val joe = User(dyn"1", dyn"Joe", 30, 180)
+
 
       val prog = for {
         _     <- table.create(1, 1, Seq(ix.definition), Seq())
