@@ -21,7 +21,7 @@
 
 package com.engitano.dynamof.syntax
 
-import shapeless.{HList, ReprTypes, SingletonTypeUtils, Witness}
+import shapeless.{ReprTypes, SingletonTypeUtils}
 
 import scala.reflect.macros.whitebox
 
@@ -33,8 +33,8 @@ class FilterMacros(val c: whitebox.Context) extends SingletonTypeUtils with Repr
       _root_.shapeless.Witness.mkWitness[$sTpe]($s.asInstanceOf[$sTpe])
     """
   }
-  
-  def mkOps(field: Tree,  w: Type): Tree = {
+
+  def mkOps(field: Tree, w: Type): Tree = {
     val name = TypeName(c.freshName("anon$"))
     q"""
       {
@@ -48,7 +48,8 @@ class FilterMacros(val c: whitebox.Context) extends SingletonTypeUtils with Repr
     """
   }
 
-  def filterOps(s: Tree): Tree  = (s.tpe, s) match {
+  def filterOps(s: Tree): Tree = (s.tpe, s) match {
     case (SymTpe, LiteralSymbol(sym)) =>
-      mkOps(mkWitness(SingletonSymbolType(sym), mkSingletonSymbol(sym) ), SingletonSymbolType(sym))  }
+      mkOps(mkWitness(SingletonSymbolType(sym), mkSingletonSymbol(sym)), SingletonSymbolType(sym))
+  }
 }

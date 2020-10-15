@@ -4,22 +4,14 @@ import cats.free.Free.liftF
 import cats.free.FreeApplicative.lift
 import com.engitano.dynamof._
 import com.engitano.dynamof.formats._
-import shapeless.::
-import shapeless.labelled.FieldType
 import shapeless.Witness
 import shapeless.HNil
 import shapeless.HList
 import shapeless.BasisConstraint
-import shapeless.{ValueConstraint, KeyConstraint}
-import shapeless.Lazy
-import shapeless.ops.hlist.Prepend
-import shapeless.LabelledGeneric
 import shapeless.ops.record.Keys
 import shapeless.NotContainsConstraint
 import com.engitano.dynamof.Index._
 import software.amazon.awssdk.regions.Region
-import cats.free.Free
-import cats.free.FreeApplicative
 
 
 trait TableSyntax {

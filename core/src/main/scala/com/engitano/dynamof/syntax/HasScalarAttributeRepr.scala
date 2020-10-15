@@ -1,7 +1,6 @@
 package com.engitano.dynamof.syntax
 
 import com.engitano.dynamof._
-import com.engitano.dynamof.formats._
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 
 trait ToScalarAttr[A] {

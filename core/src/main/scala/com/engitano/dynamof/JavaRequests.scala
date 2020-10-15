@@ -2,12 +2,9 @@ package com.engitano.dynamof
 
 import cats.syntax.option._
 import cats.syntax.apply._
-import cats.syntax.flatMap._
-import cats.instances.option._
 import software.amazon.awssdk.services.dynamodb.model.{
   PutItemRequest => JPutItemRequest,
   CreateTableRequest => JCreateTableRequest,
-  UpdateTableRequest => JUpdateTableRequest,
   GetItemRequest => JGetItemRequest,
   AttributeDefinition => JAttributeDefinition,
   ProvisionedThroughput => JProvisionedThroughput,
@@ -19,16 +16,10 @@ import software.amazon.awssdk.services.dynamodb.model.{
   KeyType
 }
 import scala.jdk.CollectionConverters._
-import cats.data.StateT
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
-import com.engitano.dynamof.formats.DynamoValue
-import cats.data.OptionT
 import cats.data.State
 import cats.arrow.FunctionK
 import cats.Eval
-import software.amazon.awssdk.services.dynamodb.model.Replica
-import software.amazon.awssdk.services.dynamodb.model.ReplicationGroupUpdate
-import software.amazon.awssdk.services.dynamodb.model.CreateReplicationGroupMemberAction
 import software.amazon.awssdk.services.dynamodb.model.Projection
 import software.amazon.awssdk.services.dynamodb.model.ProjectionType
 
@@ -69,9 +60,9 @@ private object JavaRequests {
               .asJava
           )
     val withGlobalIndexes =
-      if (req.globalIndexes.isEmpty) builder
+      if (req.globalIndexes.isEmpty) withLocalIndexes
       else
-        builder.globalSecondaryIndexes(
+        withLocalIndexes.globalSecondaryIndexes(
           req.globalIndexes
             .map(
               ix =>

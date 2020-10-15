@@ -19,8 +19,7 @@ case class And(lhs: UpdateExpression, rhs: UpdateExpression)
 
 trait UpdateSymbolOps {
     import shapeless._
-    import shapeless.labelled._
-    import com.engitano.dynamof.formats.syntax._
+    import com.engitano.dynamof.formats.implicits._
     type K <: Symbol
     type Repr <: HList
     protected val w: Witness.Aux[K]

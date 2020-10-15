@@ -6,11 +6,6 @@ import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters._
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
-import cats.Contravariant
-import cats.Functor
-import cats.ApplicativeError
-import cats.syntax.functor._
-
 
 object ToDynamoValue {
   def apply[A](implicit tav: ToDynamoValue[A]) = tav
@@ -68,12 +63,12 @@ object DynamoValue {
     else if (!a.ns.isEmpty) NS(a.ns.asScala.toSet.map(N(_)))
     else if (!a.bs.isEmpty) BS(a.bs.asScala.map(b => B(b.asByteBuffer)).toSet)
     else if (!a.l.isEmpty) L(a.l.asScala.map(parse).toList)
-    else if (!a.m.isEmpty()) M(a.m.asScala.mapValues(parse).toMap)
+    else if (!a.m.isEmpty()) M(a.m.asScala.view.mapValues(parse).toMap)
     else DynamoValue.Empty
   }
 
   object M {
-    def parse(m: Map[String, AttributeValue]) : M = M(m.mapValues(v => DynamoValue.parse(v)).toMap)
+    def parse(m: Map[String, AttributeValue]) : M = M(m.view.mapValues(v => DynamoValue.parse(v)).toMap)
   }
 }
 
@@ -97,7 +92,7 @@ sealed abstract class DynamoValue {
     case NS(ns)  => AttributeValue.builder.ns(ns.map(_.n).asJavaCollection).build()
     case BS(bs)  => AttributeValue.builder.bs(bs.map(b => SdkBytes.fromByteBuffer(b.b)).asJavaCollection).build()
     case L(l)    => AttributeValue.builder.l(l.map(_.toAttributeValue).asJavaCollection).build()
-    case M(m)    => AttributeValue.builder.m(m.mapValues(_.toAttributeValue).toMap.asJava).build()
+    case M(m)    => AttributeValue.builder.m(m.view.mapValues(_.toAttributeValue).toMap.asJava).build()
     case Empty   => AttributeValue.builder.build()
   }
 }

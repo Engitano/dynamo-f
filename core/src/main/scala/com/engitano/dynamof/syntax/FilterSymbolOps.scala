@@ -21,7 +21,6 @@ trait FilterSymbolOps {
 }
 
 trait FilterSyntax {
-  import scala.language.experimental.macros
   implicit def symbolOps(s: Symbol): FilterSymbolOps = macro FilterMacros.filterOps
 
   implicit class FilterOpExtensions[LHS <: HList](l: LHS)(implicit ev1: ToPredicate[LHS]) {

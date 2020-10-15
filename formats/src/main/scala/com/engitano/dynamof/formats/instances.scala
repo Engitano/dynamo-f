@@ -1,9 +1,7 @@
 package com.engitano.dynamof.formats
 
-import cats.syntax.functor._
 import cats.Contravariant
 import cats.Functor
-import cats.data.Validated
 
 trait FromDynamoValueInstances {
 
@@ -23,8 +21,5 @@ trait ToDynamoValueInstances {
     }
 }
 
-object instances {
-    object fromDynamoValue extends FromDynamoValueInstances
-    object toDynamoValue extends ToDynamoValueInstances
-    object all extends FromDynamoValueInstances with ToDynamoValueInstances
-}
+trait MarshallerInstances extends FromDynamoValueInstances with ToDynamoValueInstances
+

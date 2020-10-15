@@ -1,8 +1,8 @@
 package com.engitano.dynamof
 
-import cats.~>
-import cats.free.FreeInstances
+
 import com.engitano.dynamof._
+import com.engitano.dynamof.formats.implicits._
 import com.engitano.dynamof.DynamoFTypeSpec.MyDto
 import org.scalatest.{Matchers, WordSpec}
 import eu.timepit.refined.types.string.NonEmptyString
@@ -16,19 +16,13 @@ object DynamoFTypeSpec {
 class DynamoFTypeSpec extends WordSpec with Matchers {
 
   import syntax.all._
-  import formats.auto._
-  import formats._
-  import DynamoValue._
 
-  // implicit val idInterpreter = new (DynamoOpA ~> Option) {
-  //   def apply[A](fa: DynamoOpA[A]): Id[A] = fa
-  // }
 
   "The DynamoF Type System" should {
     "return a GetItemRequest when fetching by hash key" in {
       val t = Table[MyDto]("TestTable", 'id)
 
-      val req: DynamoOp[Option[MyDto]] = t.get(dyn"3")
+      t.get(dyn"3")
     
       // req should matchPattern {
       //   case GetItemRequest("TestTable", M(m), _) if m == Map("id" -> S("3")) =>
@@ -38,7 +32,7 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
     "return a GetItemRequest when fetching by hash and range key" in {
       val t = Table[MyDto]("TestTable", 'id, 'dob)
 
-      val req = t.get(dyn"3" -> 123456789L)
+      t.get(dyn"3" -> 123456789L)
       // req should matchPattern {
       //   case GetItemRequest("TestTable", M(m), _) if m == Map("id" -> S("3"), "dob" -> N("123456789")) =>
       // }
@@ -47,7 +41,7 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
     "return a ListItemsRequest when fetching by hash and range key" in {
       val t = Table[MyDto]("TestTable", 'id, 'dob)
 
-      val req = t.list(dyn"3")
+      t.list(dyn"3")
       // req should matchPattern {
       //   case ListItemsRequest("TestTable", "id" -> S("3"), None, _) =>
       // }
@@ -60,7 +54,7 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
       val ixDef = req.definition
       ixDef.key shouldBe CompositeKey(AttributeDefinition("id", ScalarAttributeType.S), AttributeDefinition("name", ScalarAttributeType.S))
 
-      val queryRequest = req.query(dyn"123", lt(dyn"b"), 'dob >= 100, Some(5), Some(dyn"123", dyn"b"))
+      req.query(dyn"123", lt(dyn"b"), 'dob >= 100, Some(5), Some(dyn"123" -> dyn"b"))
       // queryRequest should matchPattern {
       //   case QueryRequest(
       //       "TestTable",

@@ -1,12 +1,8 @@
 package com.engitano.dynamof.formats
 
-import cats.Functor
-import cats.Applicative
-import cats.ApplicativeError
 import cats.implicits._
 import java.nio.ByteBuffer
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAccessor
 import scala.util.Try
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
@@ -16,14 +12,9 @@ import shapeless.labelled._
 import eu.timepit.refined.collection._
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
-import com.engitano.dynamof.formats.instances.all._
+import com.engitano.dynamof.formats.implicits._
 
-import cats.MonadError
-import shapeless.Lazy
-import cats.CommutativeApplicative
 import java.time.LocalDate
-import cats.kernel.Monoid
-import cats.MonoidK
 import java.time.OffsetDateTime
 
 sealed trait DynamoUnmarshallException extends Throwable
@@ -219,7 +210,7 @@ trait AutoToAttributeValue {
   import DynamoValue._
 
   implicit def toDynamoMapForMap[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[Map[String, V]] = new ToDynamoMap[Map[String, V]] {
-    def to(av: Map[String, V]) = M(av.mapValues(tmv.to).toMap)
+    def to(av: Map[String, V]) = M(av.view.mapValues(tmv.to).toMap)
   }
 
   implicit def toDynamoMapForTuple[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[(String, V)] = new ToDynamoMap[(String, V)] {
@@ -350,15 +341,15 @@ trait SumTypeDerivations {
     def from(dv: DynamoValue): Either[DynamoUnmarshallException, labelled.FieldType[K, V] :+: R] = dv match {
       case DynamoValue.M(m) if (m.head._1 == fieldWitness.value.name) =>
         headGen.value.from(m.head._2).map(h => Inl(field[K](h)))
-      case DynamoValue.M(m) => tdvR.value.from(dv).map(v => Inr(v))
+      case DynamoValue.M(_) => tdvR.value.from(dv).map(v => Inr(v))
       case _                => Left(new UnknownMarshallingException(s"Cannot deserialize object ${dv}"))
     }
   }
 
   implicit def fromDynamoValueForFamilies[A, Repr <: Coproduct](
       implicit
-      notOpt: A <:!< Option[_], // Options are handled with fromAttributeValueForHConsOption
-      notList: A <:!< List[_],  // Options are handled with fromAttributeValueForHConsOption
+      ev: A <:!< Option[_], // Options are handled with fromAttributeValueForHConsOption
+      ev1: A <:!< List[_],  // Options are handled with fromAttributeValueForHConsOption
       gen: LabelledGeneric.Aux[A, Repr],
       genericFormat: Lazy[FromDynamoValue[Repr]]
   ): FromDynamoValue[A] =
@@ -367,7 +358,7 @@ trait SumTypeDerivations {
     }
 }
 
-object auto
+trait AutoFormats
     extends LowPriorityToAttributeValue
     with LowPriorityFromAttributeValue
     with AutoToAttributeValue 

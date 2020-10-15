@@ -1,7 +1,6 @@
 package com.engitano.dynamof
 
 import com.engitano.dynamof.formats._
-import com.engitano.dynamof.syntax._
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 import software.amazon.awssdk.regions.Region
 import com.engitano.dynamof.formats.FromDynamoValue

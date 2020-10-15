@@ -21,19 +21,9 @@
 
 package com.engitano.dynamof
 
-import com.engitano.dynamof.formats._
 import com.engitano.dynamof.syntax._
-import com.engitano.dynamof.formats.ToDynamoValue
-import cats.instances.option._
-import cats.syntax.functor._
-import cats.syntax.flatMap._
-import cats.syntax.traverse._
-import shapeless.labelled._
 import shapeless.ops.record.Selector
-import shapeless.{=:!=, HList, LabelledGeneric, Witness, Generic, ::, HNil}
-import cats.effect.Async
-import java.util.concurrent.CompletableFuture
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
+import shapeless.{=:!=, HList, LabelledGeneric, Witness}
 import com.engitano.dynamof.Index.IndexType
 import com.engitano.dynamof.Index.Local
 import com.engitano.dynamof.Index.Global

@@ -13,7 +13,7 @@ class NonEmptyStringMacros(val c: blackbox.Context) {
       if (parts.length != args.length + 1)
         abort("wrong number of arguments (" + args.length + ") for interpolated string with " +
           parts.length + " parts")
-
+      
       if (parts forall { case Literal(Constant("")) => true ; case _ => false })
         if (parts.size == 1)
           abort("Cannot create a NonEmptyString with the empty string")
@@ -27,11 +27,11 @@ class NonEmptyStringMacros(val c: blackbox.Context) {
       val ai = args.iterator
       val bldr = new _root_.java.lang.StringBuilder(_root_.scala.StringContext processEscapes pi.next())
       while (ai.hasNext) {
-        bldr append ai.next
-        bldr append (_root_.scala.StringContext processEscapes pi.next)
+        bldr append ai.next()
+        bldr append (_root_.scala.StringContext processEscapes pi.next())
       }
       val res = bldr.toString
-      _root_.eu.timepit.refined.types.string.NonEmptyString unsafeFrom res
+      _root_.eu.timepit.refined.types.string.NonEmptyString.unsafeFrom(res)
     """)
   }
 

@@ -1,20 +1,16 @@
 package com.engitano.dynamof.formats
 
-import org.scalatest.WordSpec
-import org.scalatest.Matchers
 
 // import cats.implicits._
-import cats.syntax.functor._
 import eu.timepit.refined.collection.NonEmpty
 import org.scalatest.WordSpec
 import org.scalatest.Matchers
-import org.scalatest.prop.Checkers
+import org.scalatestplus.scalacheck.Checkers
 import org.scalacheck.Arbitrary._
 import org.scalacheck.Prop._
-import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.OffsetDateTime
 // import org.scalacheck.ScalacheckShapeless._
+import com.engitano.dynamof.formats.implicits._
 import com.engitano.dynamof.formats.AutoFormatsSpec._
 import org.scalacheck.Arbitrary
 import org.scalacheck.Gen
@@ -32,18 +28,16 @@ object AutoFormatsSpec {
 
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
     import DynamoValue._
-    import auto._
 
     implicit def arbitraryOffsetDateTime = Arbitrary(Gen.oneOf(Seq(OffsetDateTime.now())))
     
 
     "AutoDerivation" should {
-        type F[A] = Either[Throwable, A]
         "correctly map a struct" in {
             val to = ToDynamoValue[TestStruct]
             val from = FromDynamoValue[TestStruct]
             to.to(TestStruct(dyn"123", 21)) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
-            from.from(M(Map("id" -> S("321"), "age" -> N("12")))) shouldBe Right(TestStruct(dyn"321", 12))
+            from.from(M(Map(s"id" -> S("321"), "age" -> N("12")))) shouldBe Right(TestStruct(dyn"321", 12))
         }
         "correctly map sum types" in {
             val to = ToDynamoValue[Animal]
