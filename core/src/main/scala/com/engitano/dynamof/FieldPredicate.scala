@@ -1,8 +1,8 @@
-package com.engitano.dynamof.syntax
-import com.engitano.dynamof.formats.ToDynamoValue
-import com.engitano.dynamof._
-import com.engitano.dynamof.formats.DynamoValue
+package com.engitano.dynamof
+
 import com.engitano.dynamof.formats.DynamoString
+import com.engitano.dynamof.formats.DynamoValue
+import com.engitano.dynamof.formats.ToDynamoValue
 
 sealed trait FieldPredicate[KV] {
     def toPredicate(key: String)(implicit tdv: ToDynamoValue[KV]): Predicate = this match {

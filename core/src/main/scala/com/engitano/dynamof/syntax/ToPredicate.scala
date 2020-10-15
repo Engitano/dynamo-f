@@ -2,7 +2,7 @@ package com.engitano.dynamof.syntax
 
 import shapeless._
 import shapeless.labelled.FieldType
-import com.engitano.dynamof.Predicate
+import com.engitano.dynamof._
 import com.engitano.dynamof.formats.ToDynamoValue
 import com.engitano.dynamof.{ And => Amp }
 

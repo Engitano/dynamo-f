@@ -2,20 +2,18 @@ package com.engitano.dynamof
 
 
 import com.engitano.dynamof._
+import com.engitano.dynamof.implicits._
 import com.engitano.dynamof.formats.implicits._
 import com.engitano.dynamof.DynamoFTypeSpec.MyDto
 import org.scalatest.{Matchers, WordSpec}
 import eu.timepit.refined.types.string.NonEmptyString
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
-import com.engitano.dynamof.syntax.lt
 
 object DynamoFTypeSpec {
   case class MyDto(id: NonEmptyString, name: NonEmptyString, dob: Long)
 }
 
 class DynamoFTypeSpec extends WordSpec with Matchers {
-
-  import syntax.all._
 
 
   "The DynamoF Type System" should {

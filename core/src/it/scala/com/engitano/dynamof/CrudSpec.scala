@@ -22,7 +22,6 @@
 package com.engitano.dynamof
 
 import com.engitano.dynamof._
-import com.engitano.dynamof.syntax.gt
 import com.engitano.dynamof.implicits._
 import com.engitano.dynamof.formats.DynamoString
 import com.engitano.dynamof.formats.implicits._
@@ -34,7 +33,6 @@ import java.net.URI
 import software.amazon.awssdk.regions.Region
 import cats.effect.Async
 import cats.syntax.apply._
-import com.engitano.dynamof.syntax.beginsWith
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
