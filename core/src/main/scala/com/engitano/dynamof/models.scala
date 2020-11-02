@@ -5,6 +5,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 import software.amazon.awssdk.regions.Region
 import com.engitano.dynamof.formats.FromDynamoValue
 import software.amazon.awssdk.services.dynamodb.model.TableDescription
+import cats.data.NonEmptyList
 
 sealed trait DynamoOpA[A]
 case class DescribeTableRequest(name: String) extends DynamoOpA[Option[TableDescription]]
@@ -26,9 +27,11 @@ case class ListItemsRequest[A](
     index: Option[String],
     fdv: FromDynamoValue[A]
 ) extends DynamoOpA[QueryResponse[A]]
-case class PutItemRequest(table: String, document: DynamoValue.M)                                             extends DynamoOpA[Unit]
-case class DeleteItemRequest(table: String, key: DynamoValue.M)                                               extends DynamoOpA[Unit]
-case class UpdateItemRequest(table: String, keyExpression: DynamoValue.M, updateExpression: UpdateExpression) extends DynamoOpA[Unit]
+sealed trait WriteItem 
+case class PutItemRequest(table: String, document: DynamoValue.M)                                             extends DynamoOpA[Unit] with WriteItem
+case class DeleteItemRequest(table: String, key: DynamoValue.M)                                               extends DynamoOpA[Unit] with WriteItem
+case class UpdateItemRequest(table: String, keyExpression: DynamoValue.M, updateExpression: UpdateExpression) extends DynamoOpA[Unit] with WriteItem
+case class TransactWriteRequest(operations: NonEmptyList[WriteItem]) extends DynamoOpA[Unit]
 case class QueryRequest[A](
     table: String,
     key: (String, DynamoValue),
@@ -59,22 +62,22 @@ case class Between[V <: DynamoValue](attribute: String, lowerBound: V, upperBoun
 case class BeginsWith(attribute: String, value: DynamoValue.S)                        extends Predicate
 case class And(lhs: Predicate, rhs: Predicate)                                        extends Predicate
 
-trait DynamoValueSet[A] {
-  def getSet(a: A): Set[DynamoValue]
-}
+// trait DynamoValueSet[A] {
+//   def getSet(a: A): Set[DynamoValue]
+// }
 
-object DynamoValueSet {
-  implicit def apply[A](implicit dvs: DynamoValueSet[A]) = dvs
-  implicit def dynamoValueSetStringSet: DynamoValueSet[DynamoValue.SS] = new DynamoValueSet[DynamoValue.SS] {
-    override def getSet(a: DynamoValue.SS): Set[DynamoValue] = a.ss.map(s => s.asInstanceOf[DynamoValue])
-  }
-  implicit def dynamoValueSetStringNumber: DynamoValueSet[DynamoValue.NS] = new DynamoValueSet[DynamoValue.NS] {
-    override def getSet(a: DynamoValue.NS): Set[DynamoValue] = a.ns.map(s => s.asInstanceOf[DynamoValue])
-  }
-  implicit def dynamoValueSetStringBinary: DynamoValueSet[DynamoValue.BS] = new DynamoValueSet[DynamoValue.BS] {
-    override def getSet(a: DynamoValue.BS): Set[DynamoValue] = a.bs.map(s => s.asInstanceOf[DynamoValue])
-  }
-}
+// object DynamoValueSet {
+//   implicit def apply[A](implicit dvs: DynamoValueSet[A]) = dvs
+//   implicit def dynamoValueSetStringSet: DynamoValueSet[DynamoValue.SS] = new DynamoValueSet[DynamoValue.SS] {
+//     override def getSet(a: DynamoValue.SS): Set[DynamoValue] = a.ss.map(s => s.asInstanceOf[DynamoValue])
+//   }
+//   implicit def dynamoValueSetStringNumber: DynamoValueSet[DynamoValue.NS] = new DynamoValueSet[DynamoValue.NS] {
+//     override def getSet(a: DynamoValue.NS): Set[DynamoValue] = a.ns.map(s => s.asInstanceOf[DynamoValue])
+//   }
+//   implicit def dynamoValueSetStringBinary: DynamoValueSet[DynamoValue.BS] = new DynamoValueSet[DynamoValue.BS] {
+//     override def getSet(a: DynamoValue.BS): Set[DynamoValue] = a.bs.map(s => s.asInstanceOf[DynamoValue])
+//   }
+// }
 
 sealed trait UpdateExpression
 sealed trait SetAction

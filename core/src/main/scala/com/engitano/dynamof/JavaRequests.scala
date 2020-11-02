@@ -13,6 +13,11 @@ import software.amazon.awssdk.services.dynamodb.model.{
   QueryRequest => JQueryRequest,
   LocalSecondaryIndex => JLocalSecondaryIndex,
   GlobalSecondaryIndex => JGlobalSecondaryIndex,
+  Put => JPut,
+  Update => JUpdate,
+  Delete => JDelete,
+  Get => JGet,
+  TransactWriteItem,
   KeySchemaElement,
   KeyType
 }
@@ -24,11 +29,28 @@ import cats.Eval
 import software.amazon.awssdk.services.dynamodb.model.Projection
 import software.amazon.awssdk.services.dynamodb.model.ProjectionType
 import com.engitano.dynamof.formats.DynamoValue
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest
 
 private object JavaRequests {
 
   def to(req: PutItemRequest): JPutItemRequest =
     JPutItemRequest
+      .builder()
+      .tableName(req.table)
+      .item(req.document.toAttributeValue.m())
+      .build()
+
+  def to(req: TransactWriteRequest): TransactWriteItemsRequest = {
+    val items = req.operations.map {
+      case r: PutItemRequest    => TransactWriteItem.builder.put(JavaRequests.toWriteItem(r)).build()
+      case r: UpdateItemRequest => TransactWriteItem.builder.update(JavaRequests.toWriteItem(r)).build()
+      case r: DeleteItemRequest => TransactWriteItem.builder.delete(JavaRequests.toWriteItem(r)).build()
+    }
+    return TransactWriteItemsRequest.builder().transactItems(items.toList.asJava).build()
+  }
+
+  def toWriteItem(req: PutItemRequest): JPut =
+    JPut
       .builder()
       .tableName(req.table)
       .item(req.document.toAttributeValue.m())
@@ -117,6 +139,33 @@ private object JavaRequests {
       .tableName(req.table)
       .key(req.key.toAttributeValue.m())
       .build()
+
+  def toWriteItem(req: DeleteItemRequest): JDelete =
+    JDelete
+      .builder()
+      .tableName(req.table)
+      .key(req.key.toAttributeValue.m())
+      .build()
+
+  def toWriteItem(req: UpdateItemRequest): JUpdate = {
+    val jreq     = JUpdate.builder().tableName(req.table)
+    val withKeys = jreq.key(req.keyExpression.toAttributeValue.m())
+    req.updateExpression match {
+      case SetExpression(SetValues(xs)) =>
+        val (setExpression, expressionAttributeValues, expressionAttributeNames) =
+          xs.foldLeft((List[String](), Map[String, AttributeValue](), Map[String, String]())) { (acc, n) =>
+            val nextValue = s":${acc._2.size}"
+            val nextName  = s"#${acc._2.size}"
+            (acc._1 :+ (s"${nextName} = $nextValue"), acc._2 + (nextValue -> n.value.toAttributeValue), acc._3 + (nextName -> n.attribute))
+          }
+
+        withKeys
+          .updateExpression("SET " + setExpression.mkString(", "))
+          .expressionAttributeValues(expressionAttributeValues.asJava)
+          .expressionAttributeNames(expressionAttributeNames.asJava)
+          .build()
+    }
+  }
 
   def to(req: ListItemsRequest[_]): JQueryRequest = {
     val builder = JQueryRequest

@@ -27,7 +27,7 @@ import com.engitano.dynamof.formats.DynamoString
 import com.engitano.dynamof.formats.implicits._
 import org.scalatest.WordSpec
 import org.scalatest.Matchers
-import com.engitano.dynamof.CrudSpec.User
+import com.engitano.dynamof.CrudSpec.{User, Car}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import java.net.URI
 import software.amazon.awssdk.regions.Region
@@ -43,6 +43,7 @@ import java.util.concurrent.Executors
 
 object CrudSpec {
   case class User(id: DynamoString, name: DynamoString, age: Int, heightCms: Int)
+  case class Car(id: Int, make: DynamoString)
 }
 
 class CrudSpec extends WordSpec with Matchers {
@@ -114,7 +115,7 @@ class CrudSpec extends WordSpec with Matchers {
       val table = Table[User]("users", 'id, 'name)
       val joe   = User(dyn"1", dyn"Joe", 30, 180)
 
-      val getJoe = table.get(dyn"1" -> dyn"Joe")
+      val getJoe = table.get((dyn"1", dyn"Joe"))
 
       val prog = for {
         _      <- table.create(1, 1, Seq(), Seq())
@@ -128,6 +129,27 @@ class CrudSpec extends WordSpec with Matchers {
       val (joe1, joe2) = prog.eval(interpreter).unsafeRunSync()
       joe1 shouldBe Some(joe)
       joe2 shouldBe Some(joe.copy(age = 31))
+    }
+
+    "Transact Insert items" in {
+      val cars           = Table[Car]("cars", 'id)
+      val users          = Table[User]("users", 'id, 'age)
+      val originalPeople = (1 to 5).map(i => User(dyn"1", dyn"Joe", i, 180))
+      val originalCars   = (1 to 5).map(i => Car(i, dyn"BMW"))
+      val putPeople      = originalPeople.map(users.putOp)
+      val putCars        = originalCars.map(cars.putOp)
+
+      val prog = for {
+        _    <- (users.createP(1, 1, Seq(), Seq()), cars.createP(1, 1, Seq(), Seq())).tupled.seq
+        _    <- Transactionally.write(putPeople.head, (putPeople.tail ++ putCars): _*)
+        joes <- users.list(dyn"1")
+        bmws <- cars.get(1)
+        _    <- (users.dropP(), cars.dropP()).tupled.seq
+      } yield (joes, bmws)
+
+      val (allTheJoes, beemerOne) = prog.eval(interpreter).unsafeRunSync()
+      allTheJoes.results shouldBe originalPeople
+      beemerOne shouldBe originalCars.headOption
     }
 
     "Query items" in {

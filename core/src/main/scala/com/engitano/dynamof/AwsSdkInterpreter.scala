@@ -37,6 +37,8 @@ object AsyncCF {
 }
 
 object AwsSdkInterpreter {
+
+  
   def apply[F[_]](client: DynamoDbAsyncClient)(implicit F: Async[F]): DynamoOpA ~> F = new (DynamoOpA ~> F) {
     def apply[A](fa: DynamoOpA[A]): F[A] =
       fa match {
@@ -99,6 +101,14 @@ object AwsSdkInterpreter {
                 .deleteItem(JavaRequests.to(req))
             )
             .as(())
+        case req: TransactWriteRequest => 
+          AsyncCF
+            .wrap(
+              client
+                .transactWriteItems(JavaRequests.to(req))
+            )
+            .as(())
+        
         case req: ListItemsRequest[_] =>
           AsyncCF
             .wrap(
