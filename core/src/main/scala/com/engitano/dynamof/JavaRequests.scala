@@ -6,6 +6,7 @@ import software.amazon.awssdk.services.dynamodb.model.{
   PutItemRequest => JPutItemRequest,
   CreateTableRequest => JCreateTableRequest,
   GetItemRequest => JGetItemRequest,
+  UpdateItemRequest => JUpdateItemRequest,
   AttributeDefinition => JAttributeDefinition,
   ProvisionedThroughput => JProvisionedThroughput,
   DeleteItemRequest => JDeleteItemRequest,
@@ -22,6 +23,7 @@ import cats.arrow.FunctionK
 import cats.Eval
 import software.amazon.awssdk.services.dynamodb.model.Projection
 import software.amazon.awssdk.services.dynamodb.model.ProjectionType
+import com.engitano.dynamof.formats.DynamoValue
 
 private object JavaRequests {
 
@@ -52,7 +54,7 @@ private object JavaRequests {
                 ix =>
                   JLocalSecondaryIndex
                     .builder()
-                    .indexName(ix.name)                    
+                    .indexName(ix.name)
                     .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
                     .keySchema(toKeySchemaDefinitions(ix.key).asJava)
                     .build()
@@ -80,6 +82,26 @@ private object JavaRequests {
         )
 
     withGlobalIndexes.build()
+  }
+
+  def to(req: UpdateItemRequest): JUpdateItemRequest = {
+    val jreq     = JUpdateItemRequest.builder().tableName(req.table)
+    val withKeys = jreq.key(req.keyExpression.toAttributeValue.m())
+    req.updateExpression match {
+      case SetExpression(SetValues(xs)) =>
+        val (setExpression, expressionAttributeValues, expressionAttributeNames) =
+          xs.foldLeft((List[String](), Map[String, AttributeValue](), Map[String, String]())) { (acc, n) =>
+            val nextValue = s":${acc._2.size}"
+            val nextName  = s"#${acc._2.size}"
+            (acc._1 :+ (s"${nextName} = $nextValue"), acc._2 + (nextValue -> n.value.toAttributeValue), acc._3 + (nextName -> n.attribute))
+          }
+
+        withKeys
+          .updateExpression("SET " + setExpression.mkString(", "))
+          .expressionAttributeValues(expressionAttributeValues.asJava)
+          .expressionAttributeNames(expressionAttributeNames.asJava)
+          .build()
+    }
   }
 
   def to(req: GetItemRequest[_]): JGetItemRequest =
@@ -137,10 +159,14 @@ private object JavaRequests {
     case AttributeDefinition(name, attrType) => JAttributeDefinition.builder().attributeName(name).attributeType(attrType).build()
   }
 
-  def toAttributeDefinitions(pk: PrimaryKey*) = pk.flatMap {
-    case SimpleKey(attr)      => Seq(toAttributeDefinition(attr))
-    case CompositeKey(hk, rk) => Seq(toAttributeDefinition(hk), toAttributeDefinition(rk))
-  }.groupBy(_.attributeName()).map(_._2.head).toSeq
+  def toAttributeDefinitions(pk: PrimaryKey*) =
+    pk.flatMap {
+        case SimpleKey(attr)      => Seq(toAttributeDefinition(attr))
+        case CompositeKey(hk, rk) => Seq(toAttributeDefinition(hk), toAttributeDefinition(rk))
+      }
+      .groupBy(_.attributeName())
+      .map(_._2.head)
+      .toSeq
 
   def buildKeySchemaElement(name: String, keyType: KeyType) = KeySchemaElement.builder().keyType(keyType).attributeName(name).build
   def toKeySchemaDefinitions(pk: PrimaryKey) = pk match {

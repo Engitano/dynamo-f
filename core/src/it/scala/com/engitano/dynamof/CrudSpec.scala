@@ -31,6 +31,8 @@ import com.engitano.dynamof.CrudSpec.User
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import java.net.URI
 import software.amazon.awssdk.regions.Region
+import shapeless.syntax.singleton._
+import shapeless.HNil
 import cats.effect.Async
 import cats.syntax.apply._
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
@@ -52,7 +54,6 @@ class CrudSpec extends WordSpec with Matchers {
     .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("key", "secret")))
     .build()
 
-  
   val interpreter = AwsSdkInterpreter[IO](lowLevelClient)
 
   "DynamoF" should {
@@ -73,21 +74,60 @@ class CrudSpec extends WordSpec with Matchers {
       prog.eval(interpreter).unsafeRunSync shouldBe (None -> Some(expectedUser))
     }
     "List items" in {
-      val table         = Table[User]("users", 'id, 'age)
-      val ix = table.localSecondaryIndex("usersByName", 'name)
-      val fred = User(dyn"1", dyn"Fred", 25, 180)
-      val joe = User(dyn"1", dyn"Joe", 30, 180)
-
+      val table = Table[User]("users", 'id, 'age)
+      val ix    = table.localSecondaryIndex("usersByName", 'name)
+      val fred  = User(dyn"1", dyn"Fred", 25, 180)
+      val joe   = User(dyn"1", dyn"Joe", 30, 180)
 
       val prog = for {
-        _     <- table.create(1, 1, Seq(ix.definition), Seq())
-        _     <- table.put(fred)
-        _     <- table.put(joe)
-        joe   <- ix.query(dyn"1", gt(dyn"J"))
-        _     <- table.drop()
+        _   <- table.create(1, 1, Seq(ix.definition), Seq())
+        _   <- table.put(fred)
+        _   <- table.put(joe)
+        joe <- ix.query(dyn"1", gt(dyn"J"))
+        _   <- table.drop()
       } yield joe.results.headOption
 
       prog.eval(interpreter).unsafeRunSync() shouldBe Some(joe)
+    }
+
+    "Update items" in {
+      val table = Table[User]("users", 'id)
+      val joe   = User(dyn"1", dyn"Joe", 30, 180)
+
+      val getJoe = table.get(dyn"1")
+
+      val prog = for {
+        _      <- table.create(1, 1, Seq(), Seq())
+        _      <- table.put(joe)
+        joe    <- getJoe
+        _      <- table.set(dyn"1", 'age ->> 31 :: 'name ->> dyn"Fred" :: HNil)
+        oldJoe <- getJoe
+        _      <- table.drop()
+      } yield (joe, oldJoe)
+
+      val (jo, fred) = prog.eval(interpreter).unsafeRunSync()
+      jo shouldBe Some(joe)
+      fred shouldBe Some(joe.copy(age = 31, name = dyn"Fred"))
+    }
+
+    "Update items with compound key" in {
+      val table = Table[User]("users", 'id, 'name)
+      val joe   = User(dyn"1", dyn"Joe", 30, 180)
+
+      val getJoe = table.get(dyn"1" -> dyn"Joe")
+
+      val prog = for {
+        _      <- table.create(1, 1, Seq(), Seq())
+        _      <- table.put(joe)
+        joe    <- getJoe
+        _      <- table.set((dyn"1", dyn"Joe"), 'age ->> 31 :: HNil)
+        oldJoe <- getJoe
+        _      <- table.drop()
+      } yield (joe, oldJoe)
+
+      val (joe1, joe2) = prog.eval(interpreter).unsafeRunSync()
+      joe1 shouldBe Some(joe)
+      joe2 shouldBe Some(joe.copy(age = 31))
     }
 
     "Query items" in {
@@ -109,7 +149,7 @@ class CrudSpec extends WordSpec with Matchers {
         )
         _ <- table.drop()
       } yield items
-      
+
       //evalP enforces applicative operations are evaluated concurrently.
       //evalP requires a Parallel[F] to ensure F has the required Applicative[?]
       //Parallel[F] for IO requires a contextShit

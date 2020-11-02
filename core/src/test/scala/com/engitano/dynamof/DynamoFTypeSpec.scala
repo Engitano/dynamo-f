@@ -1,6 +1,7 @@
 package com.engitano.dynamof
 
-
+import shapeless.syntax.singleton._
+import shapeless.HNil
 import com.engitano.dynamof._
 import com.engitano.dynamof.implicits._
 import com.engitano.dynamof.formats.implicits._
@@ -19,9 +20,8 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
   "The DynamoF Type System" should {
     "return a GetItemRequest when fetching by hash key" in {
       val t = Table[MyDto]("TestTable", 'id)
-
       t.get(dyn"3")
-    
+      t.set(dyn"3", 'name ->> dyn"fred" :: HNil)
       // req should matchPattern {
       //   case GetItemRequest("TestTable", M(m), _) if m == Map("id" -> S("3")) =>
       // }

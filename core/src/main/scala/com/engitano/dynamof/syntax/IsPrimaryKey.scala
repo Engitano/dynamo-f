@@ -3,6 +3,7 @@ package com.engitano.dynamof.syntax
 import com.engitano.dynamof._
 import com.engitano.dynamof.formats._
 import shapeless.Witness
+import shapeless.HNil
 
 sealed trait IsPrimaryKey[F, V] {
   def primaryKey(v: V): DynamoValue.M

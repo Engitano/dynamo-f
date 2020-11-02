@@ -84,6 +84,14 @@ object AwsSdkInterpreter {
                 .putItem(JavaRequests.to(req))
             )
             .as(())
+        case req: UpdateItemRequest =>
+          AsyncCF
+            .wrap(
+              client
+                .updateItem(JavaRequests.to(req))
+            )
+            .as(())
+
         case req: DeleteItemRequest =>
           AsyncCF
             .wrap(
