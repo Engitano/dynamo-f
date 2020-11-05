@@ -6,6 +6,7 @@ import software.amazon.awssdk.regions.Region
 import com.engitano.dynamof.formats.FromDynamoValue
 import software.amazon.awssdk.services.dynamodb.model.TableDescription
 import cats.data.NonEmptyList
+import com.engitano.dynamof.formats.DynamoValue.Bool
 
 sealed trait DynamoOpA[A]
 case class DescribeTableRequest(name: String) extends DynamoOpA[Option[TableDescription]]
@@ -27,10 +28,12 @@ case class ListItemsRequest[A](
     index: Option[String],
     fdv: FromDynamoValue[A]
 ) extends DynamoOpA[QueryResponse[A]]
-sealed trait WriteItem 
-case class PutItemRequest(table: String, document: DynamoValue.M)                                             extends DynamoOpA[Unit] with WriteItem
-case class DeleteItemRequest(table: String, key: DynamoValue.M)                                               extends DynamoOpA[Unit] with WriteItem
-case class UpdateItemRequest(table: String, keyExpression: DynamoValue.M, updateExpression: UpdateExpression) extends DynamoOpA[Unit] with WriteItem
+sealed trait WriteItem
+case class PutItemRequest(table: String, document: DynamoValue.M) extends DynamoOpA[Unit] with WriteItem
+case class DeleteItemRequest(table: String, key: DynamoValue.M)   extends DynamoOpA[Unit] with WriteItem
+case class UpdateItemRequest(table: String, keyExpression: DynamoValue.M, updateExpression: UpdateExpression)
+    extends DynamoOpA[Unit]
+    with WriteItem
 case class TransactWriteRequest(operations: NonEmptyList[WriteItem]) extends DynamoOpA[Unit]
 case class QueryRequest[A](
     table: String,
@@ -82,9 +85,9 @@ case class And(lhs: Predicate, rhs: Predicate)                                  
 sealed trait UpdateExpression
 sealed trait SetAction
 case class SetValue(attribute: String, value: DynamoValue, ifNotExists: Boolean = false)
-case class SetValues(operations: List[SetValue])                                            extends SetAction
-// case class IncrementValue(attribute: String, value: DynamoValue.N)                          extends SetAction
+case class SetValues(operations: List[SetValue])                                      extends SetAction
+case class IncrementValue(attribute: String, value: DynamoValue.N, subtract: Boolean) extends SetAction
 // case class AppendValues(attribute: String, value: DynamoValue.L)                            extends SetAction
-case class SetExpression(action: SetAction)                                                 extends UpdateExpression
+case class SetExpression(action: SetAction) extends UpdateExpression
 // case class RemoveExpression(attributesToRemove: Set[String])                                extends UpdateExpression
 // case class DeleteExpression[V <: DynamoValue: DynamoValueSet](attribute: String, values: V) extends UpdateExpression

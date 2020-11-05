@@ -63,16 +63,18 @@ class CrudSpec extends WordSpec with Matchers {
       val expectedUser = User(dyn"1", dyn"Fred", 25, 180)
       val get          = table.get(dyn"1")
 
+
       val prog = for {
         _ <- table.create(1, 1, Seq(), Seq())
         g <- get
         _ <- table.put(expectedUser)
+        _ <- table.increment(dyn"1", 'age, 5)
         h <- get
         _ <- table.delete(dyn"1")
         _ <- table.drop()
       } yield (g, h)
 
-      prog.eval(interpreter).unsafeRunSync shouldBe (None -> Some(expectedUser))
+      prog.eval(interpreter).unsafeRunSync shouldBe (None -> Some(expectedUser.copy(age = 30)))
     }
     "List items" in {
       val table = Table[User]("users", 'id, 'age)

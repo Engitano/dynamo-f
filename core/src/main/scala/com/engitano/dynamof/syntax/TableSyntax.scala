@@ -19,6 +19,7 @@ import shapeless.LUBConstraint
 import com.fasterxml.jackson.annotation.JacksonInject.Value
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem
 import cats.data.NonEmptyList
+import shapeless.ops.record.Selector
 
 trait TableSyntax {
 
@@ -206,6 +207,49 @@ trait TableSyntax {
         bc: BasisConstraint[UE, ARepr],
         tdv: ToDynamoMap[UE]
     ) = liftF(setP(key, setExpression))
+
+    def incrementOp[ARepr <: HList, K <: Symbol, V](
+        key: KeyValue,
+        attributeToSet: Witness.Aux[K],
+        incrementBy: V
+    )(
+        implicit lg: LabelledGeneric.Aux[A, ARepr],
+        k: IsPrimaryKey[KeyId, KeyValue],
+        value: Selector.Aux[ARepr, K, V],
+        isNumber: Numeric[V],
+        dontUpdateHK: HK =:!= K,
+        dontUpdateRK: RK =:!= K,
+    ) = {
+      val isNegative = isNumber.toDouble(incrementBy) < 0
+      val numVal = incrementBy.toString()
+      UpdateItemRequest(table, k.primaryKey(key), SetExpression(IncrementValue(attributeToSet.value.name, DynamoValue.N(numVal), isNegative)))
+    }
+
+    def incrementP[ARepr <: HList, K <: Symbol, V](
+        key: KeyValue,
+        attributeToSet: Witness.Aux[K],
+        incrementBy: V
+    )(
+        implicit lg: LabelledGeneric.Aux[A, ARepr],
+        k: IsPrimaryKey[KeyId, KeyValue],
+        value: Selector.Aux[ARepr, K, V],
+        isNumber: Numeric[V],
+        dontUpdateHK: HK =:!= K,
+        dontUpdateRK: RK =:!= K,
+    ) = lift[DynamoOpA, Unit](incrementOp(key, attributeToSet, incrementBy))
+
+    def increment[ARepr <: HList, K <: Symbol, V](
+        key: KeyValue,
+        attributeToSet: Witness.Aux[K],
+        incrementBy: V
+    )(
+        implicit lg: LabelledGeneric.Aux[A, ARepr],
+        k: IsPrimaryKey[KeyId, KeyValue],
+        value: Selector.Aux[ARepr, K, V],
+        isNumber: Numeric[V],
+        dontUpdateHK: HK =:!= K,
+        dontUpdateRK: RK =:!= K,
+    ) = liftF(incrementP(key, attributeToSet, incrementBy))
   }
 
   trait QueryableOps[A, KeyId, KeyValue] {

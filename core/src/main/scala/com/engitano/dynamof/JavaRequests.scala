@@ -123,6 +123,17 @@ private object JavaRequests {
           .expressionAttributeValues(expressionAttributeValues.asJava)
           .expressionAttributeNames(expressionAttributeNames.asJava)
           .build()
+      case SetExpression(IncrementValue(attribute, newValue, subtract)) =>
+        val attName = "#att"
+        val valName = ":val"
+        val exprAttributeNames = Map(attName -> attribute)
+        val exprAttributeValues = Map(valName -> newValue.toAttributeValue)
+        val setExpression = s"SET $attName = $attName ${ if(subtract) "-" else "+" } $valName"
+        withKeys
+          .updateExpression(setExpression)
+          .expressionAttributeValues(exprAttributeValues.asJava)
+          .expressionAttributeNames(exprAttributeNames.asJava)
+          .build()
     }
   }
 
@@ -163,6 +174,17 @@ private object JavaRequests {
           .updateExpression("SET " + setExpression.mkString(", "))
           .expressionAttributeValues(expressionAttributeValues.asJava)
           .expressionAttributeNames(expressionAttributeNames.asJava)
+          .build()
+      case SetExpression(IncrementValue(attribute, newValue, subtract)) =>
+        val attName = "#att"
+        val valName = ":val"
+        val exprAttributeNames = Map(attName -> attribute)
+        val exprAttributeValues = Map(valName -> newValue.toAttributeValue)
+        val setExpression = s"SET $attName = $attName ${ if(subtract) "-" else "+" } $valName"
+        withKeys
+          .updateExpression(setExpression)
+          .expressionAttributeValues(exprAttributeValues.asJava)
+          .expressionAttributeNames(exprAttributeNames.asJava)
           .build()
     }
   }
