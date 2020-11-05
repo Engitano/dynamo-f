@@ -4,7 +4,8 @@ import shapeless.syntax.singleton._
 import shapeless.HNil
 import com.engitano.dynamof._
 import com.engitano.dynamof.implicits._
-import com.engitano.dynamof.formats.implicits._
+import com.engitano.dynamof.formats.auto._
+import com.engitano.dynamof.formats.syntax._
 import com.engitano.dynamof.DynamoFTypeSpec.MyDto
 import org.scalatest.{Matchers, WordSpec}
 import eu.timepit.refined.types.string.NonEmptyString

@@ -10,7 +10,8 @@ import org.scalacheck.Arbitrary._
 import org.scalacheck.Prop._
 import java.time.OffsetDateTime
 // import org.scalacheck.ScalacheckShapeless._
-import com.engitano.dynamof.formats.implicits._
+import com.engitano.dynamof.formats.auto._
+import com.engitano.dynamof.formats.syntax._
 import com.engitano.dynamof.formats.AutoFormatsSpec._
 import org.scalacheck.Arbitrary
 import org.scalacheck.Gen

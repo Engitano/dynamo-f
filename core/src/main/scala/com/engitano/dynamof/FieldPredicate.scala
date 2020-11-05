@@ -15,13 +15,12 @@ sealed trait FieldPredicate[KV] {
       case bw @ beginsWith(_) => BeginsWith(key, DynamoValue.S(bw.getString))
     }
   }
-  case class lt[KV](kv: KV)      extends FieldPredicate[KV]
-  case class lte[KV](kv: KV)     extends FieldPredicate[KV]
-  case class equalTo[KV](kv: KV) extends FieldPredicate[KV]
-  case class gte[KV](kv: KV)     extends FieldPredicate[KV]
-  case class gt[KV](kv: KV)      extends FieldPredicate[KV]
-  case class beginsWith[KV](kv: KV)(implicit isS: KV =:= DynamoString) extends FieldPredicate[KV] {
-    def getString: String = isS(kv).value
-  }
-  case class between[KV](lower: KV, upper: KV) extends FieldPredicate[KV]
-  
+case class lt[KV](kv: KV)      extends FieldPredicate[KV]
+case class lte[KV](kv: KV)     extends FieldPredicate[KV]
+case class equalTo[KV](kv: KV) extends FieldPredicate[KV]
+case class gte[KV](kv: KV)     extends FieldPredicate[KV]
+case class gt[KV](kv: KV)      extends FieldPredicate[KV]
+case class beginsWith[KV](kv: KV)(implicit isS: KV =:= DynamoString) extends FieldPredicate[KV] {
+  def getString: String = isS(kv).value
+}
+case class between[KV](lower: KV, upper: KV) extends FieldPredicate[KV]

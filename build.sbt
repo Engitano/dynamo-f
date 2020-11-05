@@ -7,7 +7,7 @@ val minorVersion = SettingKey[String]("minor version")
 val patchVersion = SettingKey[Option[String]]("patch version")
 
 Global / majorVersion := "0"
-Global / minorVersion := "3"
+Global / minorVersion := "4"
 Global / patchVersion := Some("0")
 
 val writeVersion = taskKey[Unit]("Writes the version to version.txt")
@@ -59,7 +59,8 @@ lazy val `dynamo-f`: Project = (project in file("core"))
     bintrayPackageLabels := Seq("dynamodb", "fs2", "cats"),
     Defaults.itSettings ++ headerSettings(IntegrationTest) ++ automateHeaderSettings(IntegrationTest),
     parallelExecution in IntegrationTest := false,
-    Dynamo.settings
+    Dynamo.settings,
+    scalacOptions in IntegrationTest += "-Ystatistics:typer"
   )
   .dependsOn(`dynamo-f-formats`)
 

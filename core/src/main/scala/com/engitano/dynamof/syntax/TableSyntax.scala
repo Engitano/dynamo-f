@@ -168,7 +168,6 @@ trait TableSyntax {
     )(
         implicit lg: LabelledGeneric.Aux[A, ARepr],
         k: IsPrimaryKey[KeyId, KeyValue],
-        fdv: FromDynamoValue[A],
         keys: Keys.Aux[UE, Keyz],
         dontUpdateHK: NotContainsConstraint[Keyz, HK],
         dontUpdateRK: NotContainsConstraint[Keyz, RK],
@@ -186,7 +185,6 @@ trait TableSyntax {
     )(
         implicit lg: LabelledGeneric.Aux[A, ARepr],
         k: IsPrimaryKey[KeyId, KeyValue],
-        fdv: FromDynamoValue[A],
         keys: Keys.Aux[UE, Keyz],
         dontUpdateHK: NotContainsConstraint[Keyz, HK],
         dontUpdateRK: NotContainsConstraint[Keyz, RK],
@@ -200,7 +198,6 @@ trait TableSyntax {
     )(
         implicit lg: LabelledGeneric.Aux[A, ARepr],
         k: IsPrimaryKey[KeyId, KeyValue],
-        fdv: FromDynamoValue[A],
         keys: Keys.Aux[UE, Keyz],
         dontUpdateHK: NotContainsConstraint[Keyz, HK],
         dontUpdateRK: NotContainsConstraint[Keyz, RK],

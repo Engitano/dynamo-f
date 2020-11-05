@@ -1,6 +1,12 @@
 package com.engitano.dynamof.formats
 
-import cats.implicits._
+import cats.syntax.bifunctor._
+import cats.syntax.either._
+import cats.syntax.option._
+import cats.syntax.apply._
+import cats.syntax.traverse._
+import cats.syntax.functor._
+import cats.syntax.flatMap._
 import java.nio.ByteBuffer
 import java.time.format.DateTimeFormatter
 import scala.util.Try
@@ -12,8 +18,8 @@ import shapeless.labelled._
 import eu.timepit.refined.collection._
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
-import com.engitano.dynamof.formats.implicits._
-
+import com.engitano.dynamof.formats.instances._
+import com.engitano.dynamof.formats.DynamoValue._
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
@@ -44,47 +50,45 @@ object UnsafeString {
 
 trait LowPriorityToAttributeValue {
 
-  import DynamoValue._
-
-  implicit def toDynamoValueForBool: ToDynamoValue[Boolean] = new ToDynamoValue[Boolean] {
+  implicit val toDynamoValueForBool: ToDynamoValue[Boolean] = new ToDynamoValue[Boolean] {
     def to(b: Boolean) = Bool(b)
   }
-  implicit def toDynamoValueForInt: ToDynamoValue[Int] = new ToDynamoValue[Int] {
+  implicit val toDynamoValueForInt: ToDynamoValue[Int] = new ToDynamoValue[Int] {
     def to(i: Int) = N(i.toString())
   }
-  implicit def toDynamoValueForLong: ToDynamoValue[Long] = new ToDynamoValue[Long] {
+  implicit val toDynamoValueForLong: ToDynamoValue[Long] = new ToDynamoValue[Long] {
     def to(i: Long) = N(i.toString())
   }
-  implicit def toDynamoValueForFloat: ToDynamoValue[Float] = new ToDynamoValue[Float] {
+  implicit val toDynamoValueForFloat: ToDynamoValue[Float] = new ToDynamoValue[Float] {
     def to(i: Float) = N(i.toString())
   }
-  implicit def toDynamoValueForDouble: ToDynamoValue[Double] = new ToDynamoValue[Double] {
+  implicit val toDynamoValueForDouble: ToDynamoValue[Double] = new ToDynamoValue[Double] {
     def to(i: Double) = N(i.toString())
   }
-  implicit def toDynamoValueForByteBuffer: ToDynamoValue[ByteBuffer] = new ToDynamoValue[ByteBuffer] {
+  implicit val toDynamoValueForByteBuffer: ToDynamoValue[ByteBuffer] = new ToDynamoValue[ByteBuffer] {
     def to(i: ByteBuffer) = B(i)
   }
 
-  implicit def toDynamoValueForDynamoString: ToDynamoValue[DynamoString] = new ToDynamoValue[DynamoString] {
+  implicit val toDynamoValueForDynamoString: ToDynamoValue[DynamoString] = new ToDynamoValue[DynamoString] {
     def to(s: DynamoString) = S(s.toString)
   }
 
-  implicit def toDynamoValueForLocalDate: ToDynamoValue[LocalDate] =
+  implicit val toDynamoValueForLocalDate: ToDynamoValue[LocalDate] =
     new ToDynamoValue[LocalDate] {
       def to(s: LocalDate) = S(DateFormats.localDateFormatter.format(s))
     }
 
-  implicit def toDynamoValueForLocalDateTime: ToDynamoValue[LocalDateTime] =
+  implicit val toDynamoValueForLocalDateTime: ToDynamoValue[LocalDateTime] =
     new ToDynamoValue[LocalDateTime] {
       def to(s: LocalDateTime) = S(DateFormats.localTimedFormatter.format(s))
     }
 
-  implicit def toDynamoValueForZonedDateTime: ToDynamoValue[ZonedDateTime] =
+  implicit val toDynamoValueForZonedDateTime: ToDynamoValue[ZonedDateTime] =
     new ToDynamoValue[ZonedDateTime] {
       def to(s: ZonedDateTime) = S(DateFormats.zonedFormatter.format(s))
     }
 
-  implicit def toDynamoValueForOffsetDateTime: ToDynamoValue[OffsetDateTime] =
+  implicit val toDynamoValueForOffsetDateTime: ToDynamoValue[OffsetDateTime] =
     new ToDynamoValue[OffsetDateTime] {
       def to(s: OffsetDateTime) = S(DateFormats.zonedFormatter.format(s))
     }
@@ -107,15 +111,14 @@ trait LowPriorityToAttributeValue {
       def to(b: Set[T]) = L(b.map(t => tav.to(t)).toList)
     }
 
-  implicit def toDynamoValueForToDynamoMappable[T](implicit tdm: Lazy[ToDynamoMap[T]]): ToDynamoValue[T] =
+  implicit def toDynamoValueForToDynamoMappable[T](implicit tdm: ToDynamoMap[T]): ToDynamoValue[T] =
     new ToDynamoValue[T] {
-      def to(b: T) = tdm.value.to(b)
+      def to(b: T) = tdm.to(b)
     }
 }
 
 trait LowPriorityFromAttributeValue {
 
-  import DynamoValue._
 
   private def attempt[T](f: PartialFunction[DynamoValue, T]): FromDynamoValue[T] =
     new FromDynamoValue[T] {
@@ -184,7 +187,7 @@ trait LowPriorityFromAttributeValue {
   ): FromDynamoValue[Seq[A]] =
     attemptEither {
       case L(s)  => s.traverse(fda.from).map(_.toSeq)
-      case Empty => Right(Seq())
+      case DynamoValue.Empty => Right(Seq())
     }
 
   implicit def fromAttributeValueForList[A](implicit
@@ -201,13 +204,11 @@ trait LowPriorityFromAttributeValue {
   ): FromDynamoValue[Map[String, A]] =
     attemptEither {
       case M(s)  => s.toList.traverse(p => fda.from(p._2).map(r => p._1 -> r)).map(_.toMap)
-      case Empty => Right(Map[String, A]())
+      case DynamoValue.Empty => Right(Map[String, A]())
     }
 }
 
 trait AutoToAttributeValue {
-
-  import DynamoValue._
 
   implicit def toDynamoMapForMap[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[Map[String, V]] = new ToDynamoMap[Map[String, V]] {
     def to(av: Map[String, V]) = M(av.map { case (k,v) => k -> tmv.to(v) })
@@ -243,8 +244,6 @@ trait AutoToAttributeValue {
 }
 
 trait CaseClassDerivations {
-
-  import DynamoValue._
 
   implicit def fromAttributeValueForHNil: FromDynamoValue[HNil] = new FromDynamoValue[HNil] {
     def from(av: DynamoValue): Either[DynamoUnmarshallException, HNil] = Right(HNil)

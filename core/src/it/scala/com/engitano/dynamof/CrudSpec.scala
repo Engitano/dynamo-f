@@ -24,7 +24,8 @@ package com.engitano.dynamof
 import com.engitano.dynamof._
 import com.engitano.dynamof.implicits._
 import com.engitano.dynamof.formats.DynamoString
-import com.engitano.dynamof.formats.implicits._
+import com.engitano.dynamof.formats.syntax._
+import com.engitano.dynamof.formats.auto._
 import org.scalatest.WordSpec
 import org.scalatest.Matchers
 import com.engitano.dynamof.CrudSpec.{User, Car}
@@ -62,7 +63,6 @@ class CrudSpec extends WordSpec with Matchers {
       val table        = Table[User]("users", 'id)
       val expectedUser = User(dyn"1", dyn"Fred", 25, 180)
       val get          = table.get(dyn"1")
-
 
       val prog = for {
         _ <- table.create(1, 1, Seq(), Seq())

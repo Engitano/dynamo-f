@@ -23,3 +23,4 @@ trait ToDynamoValueInstances {
 
 trait MarshallerInstances extends FromDynamoValueInstances with ToDynamoValueInstances
 
+    
