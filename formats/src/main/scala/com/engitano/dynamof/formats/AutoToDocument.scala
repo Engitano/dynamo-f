@@ -115,6 +115,16 @@ trait LowPriorityToAttributeValue {
     new ToDynamoValue[T] {
       def to(b: T) = tdm.to(b)
     }
+
+
+  implicit def toDynamoMapForMap[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[Map[String, V]] = new ToDynamoMap[Map[String, V]] {
+    def to(av: Map[String, V]) = M(av.map { case (k,v) => k -> tmv.to(v) })
+  }
+
+  implicit def toDynamoMapForTuple[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[(String, V)] = new ToDynamoMap[(String, V)] {
+    def to(av: (String, V)) = toDynamoMapForMap[V].to(Map(av))
+  }
+
 }
 
 trait LowPriorityFromAttributeValue {
@@ -208,15 +218,7 @@ trait LowPriorityFromAttributeValue {
     }
 }
 
-trait AutoToAttributeValue {
-
-  implicit def toDynamoMapForMap[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[Map[String, V]] = new ToDynamoMap[Map[String, V]] {
-    def to(av: Map[String, V]) = M(av.map { case (k,v) => k -> tmv.to(v) })
-  }
-
-  implicit def toDynamoMapForTuple[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[(String, V)] = new ToDynamoMap[(String, V)] {
-    def to(av: (String, V)) = toDynamoMapForMap[V].to(Map(av))
-  }
+trait LowPriorityToDynamoMap {
 
   implicit def toDynamoMapForHNil: ToDynamoMap[HNil] = new ToDynamoMap[HNil] {
     def to(av: HNil) = M(Map())
@@ -234,7 +236,7 @@ trait AutoToAttributeValue {
     }
   }
 
-  implicit def fromLabelledGeneric[T, R <: HList](
+  implicit def toDymamoMapForLabelledGeneric[T, R <: HList](
       implicit gen: LabelledGeneric.Aux[T, R],
       TDM: ToDynamoMap[R]
   ): ToDynamoMap[T] =
@@ -243,7 +245,7 @@ trait AutoToAttributeValue {
     }
 }
 
-trait CaseClassDerivations {
+trait LowPriorityGenericFromDynamoValue {
 
   implicit def fromAttributeValueForHNil: FromDynamoValue[HNil] = new FromDynamoValue[HNil] {
     def from(av: DynamoValue): Either[DynamoUnmarshallException, HNil] = Right(HNil)
@@ -298,7 +300,7 @@ trait CaseClassDerivations {
   }
 }
 
-trait SumTypeDerivations {
+trait LowPriorityToDynamoValueFroSumTypes {
 
   implicit def toDynamoValueCNil: ToDynamoValue[CNil] = new ToDynamoValue[CNil] {
     def to(a: CNil): DynamoValue = DynamoValue.Empty
@@ -360,6 +362,6 @@ trait SumTypeDerivations {
 trait AutoFormats
     extends LowPriorityToAttributeValue
     with LowPriorityFromAttributeValue
-    with AutoToAttributeValue 
-    with CaseClassDerivations
-    with SumTypeDerivations
+    with LowPriorityToDynamoMap 
+    with LowPriorityGenericFromDynamoValue
+    with LowPriorityToDynamoValueFroSumTypes
