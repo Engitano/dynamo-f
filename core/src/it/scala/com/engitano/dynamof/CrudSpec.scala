@@ -41,6 +41,8 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 import cats.effect.IO
 import java.util.concurrent.Executors
+import com.engitano.dynamof.formats.ToDynamoMap
+import com.engitano.dynamof.formats.FromDynamoValue
 
 object CrudSpec {
   case class User(id: DynamoString, name: DynamoString, age: Int, heightCms: Int)

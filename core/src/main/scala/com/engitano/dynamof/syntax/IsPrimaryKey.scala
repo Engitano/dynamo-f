@@ -1,13 +1,16 @@
 package com.engitano.dynamof.syntax
 
+import cats.instances.either._
+import cats.syntax.apply._
 import com.engitano.dynamof._
 import com.engitano.dynamof.formats._
 import shapeless.Witness
 import shapeless.HNil
 
-sealed trait IsPrimaryKey[F, V] {
+sealed trait IsPrimaryKey[K, V] {
   def primaryKey(v: V): DynamoValue.M
   def primaryKeyDefinition: PrimaryKey
+  def parseKey(m: DynamoValue.M): Either[DynamoUnmarshallException, V]
 }
 
 sealed trait IsSimpleKey[K, V] extends IsPrimaryKey[K, V]
@@ -34,17 +37,29 @@ object IsCompositeKey {
 
 trait IsPrimaryKeySyntax {
 
-  implicit def isSimpleKey[K <: Symbol, V](implicit w: Witness.Aux[K], tdv: ToDynamoValue[V], hsa: ToScalarAttr[V]) = new IsSimpleKey[K, V] {
-    def primaryKey(v: V): DynamoValue.M =
-      DynamoValue.M(
-        Map(
-          w.value.name -> ToDynamoValue[V].to(v)
+  implicit def isSimpleKey[K <: Symbol, V](
+      implicit w: Witness.Aux[K],
+      tdv: ToDynamoValue[V],
+      fdv: FromDynamoValue[V],
+      hsa: ToScalarAttr[V]
+  ) =
+    new IsSimpleKey[K, V] {
+
+      override def parseKey(m: DynamoValue.M): Either[DynamoUnmarshallException, V] = {
+         m.m.get(w.value.name).toRight(AttributeNotFoundException(w.value.name)).flatMap(fdv.from)
+      }
+
+      def primaryKey(v: V): DynamoValue.M =
+        DynamoValue.M(
+          Map(
+            w.value.name -> ToDynamoValue[V].to(v)
+          )
         )
-      )
-    def primaryKeyDefinition: PrimaryKey = {
-      SimpleKey(AttributeDefinition(w.value.name, hsa.to))
+      def primaryKeyDefinition: PrimaryKey = {
+        SimpleKey(AttributeDefinition(w.value.name, hsa.to))
+      }
+
     }
-  }
 
   implicit def isCompositeKey[KF, KV, HF0 <: Symbol, HV0, RF0 <: Symbol, RV0](
       implicit
@@ -54,6 +69,8 @@ trait IsPrimaryKeySyntax {
       rkW: Witness.Aux[RF0],
       tdvH: ToDynamoValue[HV0],
       tdvR: ToDynamoValue[RV0],
+      fdvH: FromDynamoValue[HV0],
+      fdvR: FromDynamoValue[RV0],
       tsaH: ToScalarAttr[HV0],
       tsaR: ToScalarAttr[RV0]
   ): IsCompositeKey.Aux[KF, KV, HF0, HV0, RF0, RV0] = new IsCompositeKey[KF, KV] {
@@ -96,5 +113,10 @@ trait IsPrimaryKeySyntax {
           rkW.value.name -> ToDynamoValue[RV].to(v)
         )
       )
+    def parseKey(m: DynamoValue.M): Either[DynamoUnmarshallException, KV] = {
+      val hk = m.m.get(hkW.value.name).toRight(AttributeNotFoundException(hkW.value.name)).flatMap(fdvH.from)
+      val rk = m.m.get(rkW.value.name).toRight(AttributeNotFoundException(rkW.value.name)).flatMap(fdvR.from)
+      (hk, rk).tupled.map(_.asInstanceOf[KV])
+    }
   }
 }

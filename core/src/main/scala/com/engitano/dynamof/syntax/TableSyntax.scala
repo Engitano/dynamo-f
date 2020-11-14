@@ -70,6 +70,8 @@ trait TableSyntax {
 
     val table: String
 
+    def parseKey(key: DynamoValue.M)(implicit ipk: IsPrimaryKey[KeyId, KeyValue]) = ipk.parseKey(key)
+
     def createOp(
         readCapacity: Long,
         writeCapacity: Long,

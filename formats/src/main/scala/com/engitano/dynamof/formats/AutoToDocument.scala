@@ -26,6 +26,9 @@ import java.time.OffsetDateTime
 sealed trait DynamoUnmarshallException extends Throwable
 case object EmptyStringException          extends DynamoUnmarshallException
 case object AttributeValueFormatException extends DynamoUnmarshallException
+case class AttributeNotFoundException(attribute: String) extends DynamoUnmarshallException {
+  override def getMessage(): String = s"Attribute not found: $attribute"
+}
 case class BaseCaseNotPossibleException(fieldname: String, dv: DynamoValue)  extends DynamoUnmarshallException {
   override def getMessage(): String = s"Cannot generate type class for field name $fieldname and dynamo value $dv"
 }
