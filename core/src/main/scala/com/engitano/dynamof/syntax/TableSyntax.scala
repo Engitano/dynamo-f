@@ -70,7 +70,7 @@ trait TableSyntax {
 
     val table: String
 
-    def parseKey(key: DynamoValue.M)(implicit ipk: IsPrimaryKey[KeyId, KeyValue]) = ipk.parseKey(key)
+    def parseKey(key: DynamoValue.M)(implicit ipk: IsPrimaryKey[KeyId, KeyValue]): Either[DynamoUnmarshallException, KeyValue] = ipk.parseKey(key)
 
     def createOp(
         readCapacity: Long,

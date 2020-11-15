@@ -7,6 +7,13 @@ import com.engitano.dynamof.formats.FromDynamoValue
 import software.amazon.awssdk.services.dynamodb.model.TableDescription
 import cats.data.NonEmptyList
 import com.engitano.dynamof.formats.DynamoValue.Bool
+import cats.free.Free
+import cats.free.FreeApplicative
+
+object DynamoOp {
+    def pure[A](a: A) = Free.liftF(DynamoOp.pureP(a))
+    def pureP[A](a: A) = FreeApplicative.pure(a)
+}
 
 sealed trait DynamoOpA[A]
 case class DescribeTableRequest(name: String) extends DynamoOpA[Option[TableDescription]]

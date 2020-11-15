@@ -11,6 +11,7 @@ import org.scalatest.{Matchers, WordSpec}
 import eu.timepit.refined.types.string.NonEmptyString
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 import com.engitano.dynamof.formats.DynamoValue
+import com.engitano.dynamof.formats.DynamoUnmarshallException
 
 object DynamoFTypeSpec {
   case class MyDto(id: NonEmptyString, name: NonEmptyString, dob: Long)
@@ -84,7 +85,7 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
      "have a key that parses a valid dynamo map" in {
       val t = Table[MyDto]("TestTable", 'id, 'dob)
 
-      val res = t.parseKey(DynamoValue.M(Map("id" -> DynamoValue.S("123"), "dob" -> DynamoValue.N("312855060"))))
+      val res: Either[DynamoUnmarshallException, (NonEmptyString, Long)] = t.parseKey(DynamoValue.M(Map("id" -> DynamoValue.S("123"), "dob" -> DynamoValue.N("312855060"))))
       res should matchPattern {
         case Right(v -> 312855060L) if v == dyn"123" => 
       }
