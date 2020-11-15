@@ -22,21 +22,21 @@ import com.engitano.dynamof.formats.instances._
 import com.engitano.dynamof.formats.DynamoValue._
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import eu.timepit.refined.types.string.NonEmptyString
 
-sealed trait DynamoUnmarshallException extends Throwable
+sealed trait DynamoUnmarshallException    extends Throwable
 case object EmptyStringException          extends DynamoUnmarshallException
 case object AttributeValueFormatException extends DynamoUnmarshallException
 case class AttributeNotFoundException(attribute: String) extends DynamoUnmarshallException {
   override def getMessage(): String = s"Attribute not found: $attribute"
 }
-case class BaseCaseNotPossibleException(fieldname: String, dv: DynamoValue)  extends DynamoUnmarshallException {
+case class BaseCaseNotPossibleException(fieldname: String, dv: DynamoValue) extends DynamoUnmarshallException {
   override def getMessage(): String = s"Cannot generate type class for field name $fieldname and dynamo value $dv"
 }
 
-case class UnknownMarshallingException(cause: String)  extends DynamoUnmarshallException {
+case class UnknownMarshallingException(cause: String) extends DynamoUnmarshallException {
   override def getMessage(): String = cause
 }
-
 
 private[formats] object DateFormats {
   val zonedFormatter      = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -109,7 +109,12 @@ trait LowPriorityToAttributeValue {
       def to(b: C[T]) = L(b.map(t => tav.to(t)).toList)
     }
 
-  implicit def toDynamoValueForSet[T](implicit tav: ToDynamoValue[T]): ToDynamoValue[Set[T]] =
+  implicit def toDynamoValueForStringSet: ToDynamoValue[Set[NonEmptyString]] =
+    new ToDynamoValue[Set[NonEmptyString]] {
+      def to(b: Set[NonEmptyString]) = SS(b.map(t => S(t)).toSet)
+    }
+
+  implicit def toDynamoValueForSet[T](implicit tav: ToDynamoValue[T], isNotString: T =:!= NonEmptyString): ToDynamoValue[Set[T]] =
     new ToDynamoValue[Set[T]] {
       def to(b: Set[T]) = L(b.map(t => tav.to(t)).toList)
     }
@@ -119,9 +124,8 @@ trait LowPriorityToAttributeValue {
       def to(b: T) = tdm.to(b)
     }
 
-
   implicit def toDynamoMapForMap[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[Map[String, V]] = new ToDynamoMap[Map[String, V]] {
-    def to(av: Map[String, V]) = M(av.map { case (k,v) => k -> tmv.to(v) })
+    def to(av: Map[String, V]) = M(av.map { case (k, v) => k -> tmv.to(v) })
   }
 
   implicit def toDynamoMapForTuple[V](implicit tmv: ToDynamoValue[V]): ToDynamoMap[(String, V)] = new ToDynamoMap[(String, V)] {
@@ -132,21 +136,24 @@ trait LowPriorityToAttributeValue {
 
 trait LowPriorityFromAttributeValue {
 
-
   private def attempt[T](f: PartialFunction[DynamoValue, T]): FromDynamoValue[T] =
     new FromDynamoValue[T] {
-      def from(dv: DynamoValue) = (Try(f.lift(dv)).toEither match {
-        case Right(Some(d)) => Right(d)
-        case _              => Left(AttributeValueFormatException)
-      })
+      def from(dv: DynamoValue) =
+        (Try(f.lift(dv)).toEither match {
+          case Right(Some(d)) => Right(d)
+          case _              => Left(AttributeValueFormatException)
+        })
     }
 
   private def attemptEither[T](f: PartialFunction[DynamoValue, Either[Throwable, T]]): FromDynamoValue[T] =
     new FromDynamoValue[T] {
-      def from(dv: DynamoValue) = Try(f.lift(dv)).toEither.flatMap {
-        case Some(d) => d
-        case _              => Left(AttributeValueFormatException)
-      }.leftMap(_ => AttributeValueFormatException)
+      def from(dv: DynamoValue) =
+        Try(f.lift(dv)).toEither
+          .flatMap {
+            case Some(d) => d
+            case _       => Left(AttributeValueFormatException)
+          }
+          .leftMap(_ => AttributeValueFormatException)
     }
 
   implicit val fromAttributeValueForBool: FromDynamoValue[Boolean] =
@@ -195,28 +202,36 @@ trait LowPriorityFromAttributeValue {
       case S(s) => OffsetDateTime.parse(s, DateFormats.zonedFormatter)
     }
 
-  implicit def fromAttributeValueForSeq[A](implicit
+  implicit def fromAttributeValueForSeq[A](
+      implicit
       fda: FromDynamoValue[A]
   ): FromDynamoValue[Seq[A]] =
     attemptEither {
-      case L(s)  => s.traverse(fda.from).map(_.toSeq)
+      case L(s)              => s.traverse(fda.from).map(_.toSeq)
       case DynamoValue.Empty => Right(Seq())
     }
 
-  implicit def fromAttributeValueForList[A](implicit
+  implicit def fromAttributeValueForList[A](
+      implicit
       fda: FromDynamoValue[A]
   ): FromDynamoValue[List[A]] = fromAttributeValueForSeq[A](fda).map(_.toList)
 
+  implicit def fromAttributeValueForStringSet: FromDynamoValue[Set[NonEmptyString]] = attemptEither {
+    case SS(s) => s.toList.traverse(s => refineV[NonEmpty](s.s).leftMap(_ => AttributeValueFormatException)).map(_.toSet)
+  }
 
-  implicit def fromAttributeValueForSet[A](implicit
-      fda: FromDynamoValue[A]
+  implicit def fromAttributeValueForSet[A](
+      implicit
+      fda: FromDynamoValue[A],
+      notNes: A =:!= NonEmptyString
   ): FromDynamoValue[Set[A]] = fromAttributeValueForSeq[A](fda).map(_.toSet)
 
-  implicit def fromAttributeValueForMap[A](implicit
+  implicit def fromAttributeValueForMap[A](
+      implicit
       fda: FromDynamoValue[A]
   ): FromDynamoValue[Map[String, A]] =
     attemptEither {
-      case M(s)  => s.toList.traverse(p => fda.from(p._2).map(r => p._1 -> r)).map(_.toMap)
+      case M(s)              => s.toList.traverse(p => fda.from(p._2).map(r => p._1 -> r)).map(_.toMap)
       case DynamoValue.Empty => Right(Map[String, A]())
     }
 }
@@ -254,7 +269,8 @@ trait LowPriorityGenericFromDynamoValue {
     def from(av: DynamoValue): Either[DynamoUnmarshallException, HNil] = Right(HNil)
   }
 
-  implicit def fromAttributeValueForHConsOption[ Key <: Symbol, H, T <: HList](implicit
+  implicit def fromAttributeValueForHConsOption[Key <: Symbol, H, T <: HList](
+      implicit
       key: Witness.Aux[Key],
       th: Lazy[FromDynamoValue[H]],
       tt: Lazy[FromDynamoValue[T]]
@@ -275,7 +291,8 @@ trait LowPriorityGenericFromDynamoValue {
     }
   }
 
-  implicit def fromAttributeValueForHCons[Key <: Symbol, H, T <: HList](implicit 
+  implicit def fromAttributeValueForHCons[Key <: Symbol, H, T <: HList](
+      implicit
       key: Witness.Aux[Key],
       th: Lazy[FromDynamoValue[H]],
       tt: Lazy[FromDynamoValue[T]]
@@ -333,7 +350,8 @@ trait LowPriorityToDynamoValueFroSumTypes {
 
   implicit def fromDynamoValueCNil: FromDynamoValue[CNil] =
     new FromDynamoValue[CNil] {
-      def from(a: DynamoValue): Either[DynamoUnmarshallException, CNil] = Left(UnknownMarshallingException(s"Canot serializer ${a} to CNil"))
+      def from(a: DynamoValue): Either[DynamoUnmarshallException, CNil] =
+        Left(UnknownMarshallingException(s"Canot serializer ${a} to CNil"))
     }
 
   implicit def fromDynamoValueCCons[K <: Symbol, V, R <: Coproduct](
@@ -365,6 +383,6 @@ trait LowPriorityToDynamoValueFroSumTypes {
 trait AutoFormats
     extends LowPriorityToAttributeValue
     with LowPriorityFromAttributeValue
-    with LowPriorityToDynamoMap 
+    with LowPriorityToDynamoMap
     with LowPriorityGenericFromDynamoValue
     with LowPriorityToDynamoValueFroSumTypes

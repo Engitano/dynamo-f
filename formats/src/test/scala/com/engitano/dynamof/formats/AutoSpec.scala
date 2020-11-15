@@ -15,6 +15,7 @@ import com.engitano.dynamof.formats.syntax._
 import com.engitano.dynamof.formats.AutoFormatsSpec._
 import org.scalacheck.Arbitrary
 import org.scalacheck.Gen
+import eu.timepit.refined.types.string.NonEmptyString
 
 object AutoFormatsSpec {
     case class TestStruct(id: DynamoString, age: Long)
@@ -25,6 +26,7 @@ object AutoFormatsSpec {
     case object Cat extends Animal
     case class Pet(name: DynamoString) extends Animal
     case class Zoo(animals: Set[Animal])
+    case class People(names: Set[NonEmptyString])
 }
 
 class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
@@ -39,6 +41,15 @@ class AutoFormatsSpec extends WordSpec with Matchers with Checkers {
             val from = FromDynamoValue[TestStruct]
             to.to(TestStruct(dyn"123", 21)) shouldBe DynamoValue.M(Map("id" -> S("123"), "age" -> N("21")))
             from.from(M(Map(s"id" -> S("321"), "age" -> N("12")))) shouldBe Right(TestStruct(dyn"321", 12))
+        }
+        "map a string set to a dynamo SS value" in {
+            val to = ToDynamoValue[People]
+            val from = FromDynamoValue[People]
+            val original = People(Set(dyn"John", dyn"Mark"))
+            val serializedPeople = to.to(original)
+            serializedPeople shouldBe DynamoValue.M(Map("names" -> DynamoValue.SS(Set(DynamoValue.S("John"), DynamoValue.S("Mark")))))
+            val deserialized = from.from(serializedPeople)
+            deserialized shouldBe Right(original)
         }
         "correctly map sum types" in {
             val to = ToDynamoValue[Animal]
