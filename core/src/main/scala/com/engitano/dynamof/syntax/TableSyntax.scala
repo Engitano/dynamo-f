@@ -66,11 +66,13 @@ trait TableSyntax {
       startAt: Option[DynamoValue.M]
   )
 
-  trait TableOps[A, KeyId, KeyValue] {
-
-    val table: String
-
+  trait KeyOps[KeyId, KeyValue] {
     def parseKey(key: DynamoValue.M)(implicit ipk: IsPrimaryKey[KeyId, KeyValue]): Either[DynamoUnmarshallException, KeyValue] = ipk.parseKey(key)
+  }
+
+  trait TableOps[A, KeyId, KeyValue] extends KeyOps[KeyId, KeyValue] {
+
+    val table: String    
 
     def createOp(
         readCapacity: Long,
@@ -251,7 +253,7 @@ trait TableSyntax {
     ) = liftF(incrementP(key, attributeToSet, incrementBy))
   }
 
-  trait QueryableOps[A, KeyId, KeyValue] {
+  trait QueryableOps[A, KeyId, KeyValue] extends KeyOps[KeyId, KeyValue]  {
 
     val table: String
     val index: Option[String]
@@ -284,7 +286,8 @@ trait TableSyntax {
         rangeKeyPredicate: FieldPredicate[RV],
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
-        startAt: Option[KeyValue] = None
+        startAt: Option[KeyValue] = None,
+        ascending: Boolean = true,
     )(
         implicit
         ck: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV],
@@ -305,7 +308,8 @@ trait TableSyntax {
       tp.to(filterPredicate),
       startAt.map(ck.primaryKey),
       index,
-      fdv
+      fdv,
+      ascending
     )
 
     def queryP[

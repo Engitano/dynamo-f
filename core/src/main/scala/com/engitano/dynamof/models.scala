@@ -50,7 +50,8 @@ case class QueryRequest[A](
     filterExpression: Option[Predicate],
     startAt: Option[DynamoValue.M],
     index: Option[String],
-    fdv: FromDynamoValue[A]
+    fdv: FromDynamoValue[A],
+    ascending: Boolean
 ) extends DynamoOpA[QueryResponse[A]]
 
 case class QueryResponse[A](results: List[A], lastEvaluatedKey: Option[DynamoValue.M])

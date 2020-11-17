@@ -66,7 +66,8 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
             Some(GreaterThanOrEquals("dob", DynamoValue.N("100"))),
             Some(DynamoValue.M(m)),
             Some("nameIndex"),
-            _
+            _,
+            true
             ) if m == Map("id" -> DynamoValue.S("123"), "name" -> DynamoValue.S("b")) =>
       }
     }
