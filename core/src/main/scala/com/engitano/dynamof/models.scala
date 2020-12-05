@@ -45,7 +45,7 @@ case class QueryRequest[A](
     startAt: Option[DynamoValue.M],
     index: Option[String],
     fdv: FromDynamoValue[A],
-    ascending: Boolean
+    descending: Boolean
 ) extends DynamoOpA[QueryResponse[A]]
 
 case class QueryResponse[A](results: List[A], lastEvaluatedKey: Option[DynamoValue.M])

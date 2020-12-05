@@ -213,7 +213,7 @@ private object JavaRequests {
 
     val withStartKey = req.startAt.fold(withFilter)(sa => withFilter.exclusiveStartKey(sa.toAttributeValue.m()))
 
-    val withIndex = req.index.fold(withStartKey)(withStartKey.indexName).scanIndexForward(req.ascending)
+    val withIndex = req.index.fold(withStartKey)(withStartKey.indexName).scanIndexForward(!req.descending)
 
     req.limit.fold(withIndex)(sk => withIndex.limit(sk)).build()
   }

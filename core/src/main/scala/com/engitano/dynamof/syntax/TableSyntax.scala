@@ -272,7 +272,7 @@ trait TableSyntax {
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
         startAt: Option[KeyValue] = None,
-        ascending: Boolean = true,
+        descending: Boolean = false,
     )(
         implicit
         ck: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV],
@@ -294,7 +294,7 @@ trait TableSyntax {
       startAt.map(ck.primaryKey),
       index,
       fdv,
-      ascending
+      descending
     )
 
     def queryP[
@@ -310,7 +310,8 @@ trait TableSyntax {
         rangeKeyPredicate: Option[FieldPredicate[RV]] = None,
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
-        startAt: Option[KeyValue] = None
+        startAt: Option[KeyValue] = None,
+        descending: Boolean = false
     )(
         implicit
         ck: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV],
@@ -323,7 +324,7 @@ trait TableSyntax {
         nhk: NotContainsConstraint[QK, HK],
         nrk: NotContainsConstraint[QK, RK],
         fdv: FromDynamoValue[A]
-    ) = lift[DynamoOpA, QueryResponse[A]](queryOp(key, rangeKeyPredicate, filterPredicate, limit, startAt))
+    ) = lift[DynamoOpA, QueryResponse[A]](queryOp(key, rangeKeyPredicate, filterPredicate, limit, startAt, descending))
 
     def query[
         HK <: Symbol,
@@ -338,7 +339,8 @@ trait TableSyntax {
         rangeKeyPredicate: Option[FieldPredicate[RV]] = None,
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
-        startAt: Option[KeyValue] = None
+        startAt: Option[KeyValue] = None,
+        descending: Boolean = false
     )(
         implicit
         ck: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV],
@@ -351,6 +353,6 @@ trait TableSyntax {
         nhk: NotContainsConstraint[QK, HK],
         nrk: NotContainsConstraint[QK, RK],
         fdv: FromDynamoValue[A]
-    ) = liftF(queryP(key, rangeKeyPredicate, filterPredicate, limit, startAt))
+    ) = liftF(queryP(key, rangeKeyPredicate, filterPredicate, limit, startAt, descending))
   }
 }
