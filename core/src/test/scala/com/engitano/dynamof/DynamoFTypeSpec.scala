@@ -1,7 +1,5 @@
 package com.engitano.dynamof
 
-import shapeless.syntax.singleton._
-import shapeless.HNil
 import com.engitano.dynamof._
 import com.engitano.dynamof.implicits._
 import com.engitano.dynamof.formats.auto._
@@ -14,7 +12,7 @@ import com.engitano.dynamof.formats.DynamoValue
 import com.engitano.dynamof.formats.DynamoUnmarshallException
 
 object DynamoFTypeSpec {
-  case class MyDto(id: NonEmptyString, name: NonEmptyString, dob: Long)
+  case class MyDto(id: NonEmptyString, name: NonEmptyString, dob: Int)
 }
 
 class DynamoFTypeSpec extends WordSpec with Matchers {
@@ -34,7 +32,7 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
     "return a GetItemRequest when fetching by hash and range key" in {
       val t = Table[MyDto]("TestTable", 'id, 'dob)
 
-      val req = t.getOp(dyn"3" -> 123456789L)
+      val req = t.getOp(dyn"3" -> 123456789)
       req should matchPattern {
         case GetItemRequest("TestTable", M(m), _) if m == Map("id" -> S("3"), "dob" -> N("123456789")) =>
       }
@@ -72,13 +70,14 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
       ixDef.name shouldBe "nameIndex"
       ixDef.table shouldBe "TestTable"
       ixDef.key shouldBe CompositeKey(AttributeDefinition("name", ScalarAttributeType.S), AttributeDefinition("dob", ScalarAttributeType.N))
+      val query = req.query(dyn"fds", startAt = Some(0), descending = true)
 
     }
 
      "have a key that parses a valid dynamo map" in {
       val t = Table[MyDto]("TestTable", 'id, 'dob)
 
-      val res: Either[DynamoUnmarshallException, (NonEmptyString, Long)] = t.parseKey(DynamoValue.M(Map("id" -> DynamoValue.S("123"), "dob" -> DynamoValue.N("312855060"))))
+      val res: Either[DynamoUnmarshallException, (NonEmptyString, Int)] = t.parseKey(DynamoValue.M(Map("id" -> DynamoValue.S("123"), "dob" -> DynamoValue.N("312855060"))))
       res should matchPattern {
         case Right(v -> 312855060L) if v == dyn"123" => 
       }

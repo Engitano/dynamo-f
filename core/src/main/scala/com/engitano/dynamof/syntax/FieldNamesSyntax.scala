@@ -10,10 +10,12 @@ trait FieldNames[T] {
 
 object FieldNames {
   type Aux[T, R0] = FieldNames[T] { type Repr = R0 }
+
+  def apply[T](implicit fn: FieldNames[T]) = fn
 }
 
 trait FieldNamesSyntax {
-  implicit def apply[T, LGRepr <: HList, K <: HList](implicit lg: LabelledGeneric.Aux[T, LGRepr], keys: Keys.Aux[LGRepr, K]): FieldNames.Aux[T, K] =
+  implicit def toFieldNamesAux[T, LGRepr <: HList, K <: HList](implicit lg: LabelledGeneric.Aux[T, LGRepr], keys: Keys.Aux[LGRepr, K]): FieldNames.Aux[T, K] =
     new FieldNames[T] {
       type Repr = K
     }
