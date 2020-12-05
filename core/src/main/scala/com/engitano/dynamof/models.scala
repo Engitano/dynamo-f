@@ -28,13 +28,7 @@ case class CreateTableRequest(
 ) extends DynamoOpA[Unit]
 case class DeleteTableRequest(name: String)                                              extends DynamoOpA[Unit]
 case class GetItemRequest[A](table: String, key: DynamoValue.M, fdv: FromDynamoValue[A]) extends DynamoOpA[Option[A]]
-case class ListItemsRequest[A](
-    table: String,
-    key: (String, DynamoValue),
-    startAt: Option[DynamoValue.M],
-    index: Option[String],
-    fdv: FromDynamoValue[A]
-) extends DynamoOpA[QueryResponse[A]]
+
 sealed trait WriteItem
 case class PutItemRequest(table: String, document: DynamoValue.M) extends DynamoOpA[Unit] with WriteItem
 case class DeleteItemRequest(table: String, key: DynamoValue.M)   extends DynamoOpA[Unit] with WriteItem
@@ -45,7 +39,7 @@ case class TransactWriteRequest(operations: NonEmptyList[WriteItem]) extends Dyn
 case class QueryRequest[A](
     table: String,
     key: (String, DynamoValue),
-    queryExpression: Predicate,
+    queryExpression: Option[Predicate],
     limit: Option[Int],
     filterExpression: Option[Predicate],
     startAt: Option[DynamoValue.M],

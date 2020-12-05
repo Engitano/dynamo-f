@@ -189,17 +189,6 @@ private object JavaRequests {
     }
   }
 
-  def to(req: ListItemsRequest[_]): JQueryRequest = {
-    val builder = JQueryRequest
-      .builder()
-      .tableName(req.table)
-      .keyConditionExpression(s"#hk=:hk")
-      .expressionAttributeNames(Map("#hk" -> req.key._1).asJava)
-      .expressionAttributeValues(Map(":hk" -> req.key._2.toAttributeValue).asJava)
-    val withIndex = req.index.fold(builder)(builder.indexName)
-    withIndex.build()
-  }
-
   def to(req: QueryRequest[_]): JQueryRequest = {
     val hashKeyAlias = "#hashKey"
     val builder      = JQueryRequest.builder().tableName(req.table)
@@ -208,12 +197,15 @@ private object JavaRequests {
     val valueAliases = Map(":0" -> req.key._2.toAttributeValue)
     val nameAliases  = Map(hashKeyAlias -> req.key._1)
 
-    val ((names, vals, v), query) = predicateToFilter(req.queryExpression).run((nameAliases, valueAliases, 1)).value
+    val ((names, vals, v), query) = req.queryExpression.fold(((nameAliases, valueAliases, 1), "")) { qe => 
+      predicateToFilter(qe).run((nameAliases, valueAliases, 1)).value
+    }
+
     val ((namesWithF, valsWithF, _), filter) =
       req.filterExpression.fold(((names, vals, v), ""))(fe => predicateToFilter(fe).run((names, vals, v)).value)
 
     val initBuilder = builder
-      .keyConditionExpression(s"$hashKeyExpr AND $query")
+      .keyConditionExpression(s"$hashKeyExpr${if(query.size > 0) s" AND $query" else ""}")
       .expressionAttributeValues(valsWithF.asJava)
       .expressionAttributeNames(namesWithF.asJava)
 

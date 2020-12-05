@@ -258,21 +258,6 @@ trait TableSyntax {
     val table: String
     val index: Option[String]
 
-    def listOp[HK <: Symbol, HV, RK <: Symbol, RV](h: HV, startAt: Option[RV] = None)(
-        implicit k: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV],
-        fdv: FromDynamoValue[A]
-    ) = ListItemsRequest[A](table, k.hashKey(h).m.head, startAt.map(rv => k.primaryKey((h, rv))), index, fdv)
-
-    def listP[HK <: Symbol, HV, RK <: Symbol, RV](h: HV, startAt: Option[RV] = None)(
-        implicit k: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV],
-        fdv: FromDynamoValue[A]
-    ) = lift[DynamoOpA, QueryResponse[A]](listOp(h, startAt))
-
-    def list[HK <: Symbol, HV, RK <: Symbol, RV](h: HV, startAt: Option[RV] = None)(
-        implicit k: IsCompositeKey.Aux[KeyId, KeyValue, HK, HV, RK, RV],
-        fdv: FromDynamoValue[A]
-    ) = liftF(listP(h, startAt))
-
     def queryOp[
         HK <: Symbol,
         RK <: Symbol,
@@ -283,7 +268,7 @@ trait TableSyntax {
         F <: HList
     ](
         key: HV,
-        rangeKeyPredicate: FieldPredicate[RV],
+        rangeKeyPredicate: Option[FieldPredicate[RV]] = None,
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
         startAt: Option[KeyValue] = None,
@@ -303,7 +288,7 @@ trait TableSyntax {
     ) = QueryRequest[A](
       table,
       ck.hashKey(key).m.head,
-      rangeKeyPredicate.toPredicate(wr.value.name),
+      rangeKeyPredicate.map(_.toPredicate(wr.value.name)),
       limit,
       tp.to(filterPredicate),
       startAt.map(ck.primaryKey),
@@ -322,7 +307,7 @@ trait TableSyntax {
         F <: HList
     ](
         key: HV,
-        rangeKeyPredicate: FieldPredicate[RV],
+        rangeKeyPredicate: Option[FieldPredicate[RV]] = None,
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
         startAt: Option[KeyValue] = None
@@ -350,7 +335,7 @@ trait TableSyntax {
         F <: HList
     ](
         key: HV,
-        rangeKeyPredicate: FieldPredicate[RV],
+        rangeKeyPredicate: Option[FieldPredicate[RV]] = None,
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
         startAt: Option[KeyValue] = None

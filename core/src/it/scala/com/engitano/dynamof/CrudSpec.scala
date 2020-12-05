@@ -88,7 +88,7 @@ class CrudSpec extends WordSpec with Matchers {
         _   <- table.create(1, 1, Seq(ix.definition), Seq())
         _   <- table.put(fred)
         _   <- table.put(joe)
-        joe <- ix.query(dyn"1", gt(dyn"J"))
+        joe <- ix.query(dyn"1", Some(gt(dyn"J")))
         _   <- table.drop()
       } yield joe.results.headOption
 
@@ -146,7 +146,7 @@ class CrudSpec extends WordSpec with Matchers {
       val prog = for {
         _    <- (users.createP(1, 1, Seq(), Seq()), cars.createP(1, 1, Seq(), Seq())).tupled.seq
         _    <- Transactionally.write(putPeople.head, (putPeople.tail ++ putCars): _*)
-        joes <- users.list(dyn"1")
+        joes <- users.query(dyn"1")
         bmws <- cars.get(1)
         _    <- (users.dropP(), cars.dropP()).tupled.seq
       } yield (joes, bmws)
@@ -168,7 +168,7 @@ class CrudSpec extends WordSpec with Matchers {
         _ <- (table.putP(expectedUser1), table.putP(expectedUser2), table.putP(expectedUser3), table.putP(expectedUser4)).tupled.seq
         items <- table.query(
           dyn"1",
-          beginsWith(dyn"Fre"),
+          Some(beginsWith(dyn"Fre")),
           'age > 20 and 'heightCms > 152,
           limit = Some(5),
           startAt = Some((dyn"1", dyn"Fre"))

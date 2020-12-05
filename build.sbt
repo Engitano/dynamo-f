@@ -7,7 +7,7 @@ val minorVersion = SettingKey[String]("minor version")
 val patchVersion = SettingKey[Option[String]]("patch version")
 
 Global / majorVersion := "0"
-Global / minorVersion := "4"
+Global / minorVersion := "5"
 Global / patchVersion := Some("0")
 
 val writeVersion = taskKey[Unit]("Writes the version to version.txt")

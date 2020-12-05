@@ -40,14 +40,6 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
       }
     }
 
-    "return a ListItemsRequest when fetching by hash and range key" in {
-      val t = Table[MyDto]("TestTable", 'id, 'dob)
-
-      val req = t.listOp(dyn"3")
-      req should matchPattern {
-        case ListItemsRequest("TestTable", "id" -> S("3"), None, _, _) =>
-      }
-    }
 
     "return a local secondary index instance" in {
       val t = Table[MyDto]("TestTable", 'id, 'dob)
@@ -56,12 +48,12 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
       val ixDef = req.definition
       ixDef.key shouldBe CompositeKey(AttributeDefinition("id", ScalarAttributeType.S), AttributeDefinition("name", ScalarAttributeType.S))
 
-      val queryRequest = req.queryOp(dyn"123", lt(dyn"b"), 'dob >= 100, Some(5), Some(dyn"123" -> dyn"b"))
+      val queryRequest = req.queryOp(dyn"123", Some(lt(dyn"b")), 'dob >= 100, Some(5), Some(dyn"123" -> dyn"b"))
       queryRequest should matchPattern {
         case QueryRequest(
             "TestTable",
             ("id", DynamoValue.S("123")),
-            LessThan("name", DynamoValue.S("b")),
+            Some(LessThan("name", DynamoValue.S("b"))),
             Some(5),
             Some(GreaterThanOrEquals("dob", DynamoValue.N("100"))),
             Some(DynamoValue.M(m)),

@@ -108,21 +108,6 @@ object AwsSdkInterpreter {
                 .transactWriteItems(JavaRequests.to(req))
             )
             .as(())
-        
-        case req: ListItemsRequest[_] =>
-          AsyncCF
-            .wrap(
-              client
-                .query(JavaRequests.to(req))
-            )
-            .map(r => (r.items().asScala.map(v => DynamoValue.M.parse(v.asScala.toMap)), r.lastEvaluatedKey()))
-            .flatMap(
-              f =>
-                f._1.toList
-                  .traverse(p => req.fdv.from(p))
-                  .map(r => QueryResponse(r, if (f._2.isEmpty()) None else Some(DynamoValue.M.parse(f._2.asScala.toMap))))
-                  .liftTo[F]
-            )
         case req: QueryRequest[_] =>
           AsyncCF
             .wrap(
