@@ -59,8 +59,7 @@ lazy val `dynamo-f`: Project = (project in file("core"))
     bintrayPackageLabels := Seq("dynamodb", "fs2", "cats"),
     Defaults.itSettings ++ headerSettings(IntegrationTest) ++ automateHeaderSettings(IntegrationTest),
     parallelExecution in IntegrationTest := false,
-    Dynamo.settings,
-    scalacOptions in IntegrationTest += "-Ystatistics:typer"
+    Dynamo.settings
   )
   .dependsOn(`dynamo-f-formats`)
 
