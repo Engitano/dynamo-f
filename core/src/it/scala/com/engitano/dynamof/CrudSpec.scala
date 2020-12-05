@@ -171,7 +171,7 @@ class CrudSpec extends WordSpec with Matchers {
           Some(beginsWith(dyn"Fre")),
           'age > 20 and 'heightCms > 152,
           limit = Some(5),
-          startAt = Some((dyn"1", dyn"Fre"))
+          startAt = Some(dyn"Fre")
         )
         _ <- table.drop()
       } yield items

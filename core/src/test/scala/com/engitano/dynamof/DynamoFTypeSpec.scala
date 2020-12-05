@@ -48,7 +48,7 @@ class DynamoFTypeSpec extends WordSpec with Matchers {
       val ixDef = req.definition
       ixDef.key shouldBe CompositeKey(AttributeDefinition("id", ScalarAttributeType.S), AttributeDefinition("name", ScalarAttributeType.S))
 
-      val queryRequest = req.queryOp(dyn"123", Some(lt(dyn"b")), 'dob >= 100, Some(5), Some(dyn"123" -> dyn"b"))
+      val queryRequest = req.queryOp(dyn"123", Some(lt(dyn"b")), 'dob >= 100, Some(5), Some(dyn"b"))
       queryRequest should matchPattern {
         case QueryRequest(
             "TestTable",

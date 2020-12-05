@@ -271,7 +271,7 @@ trait TableSyntax {
         rangeKeyPredicate: Option[FieldPredicate[RV]] = None,
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
-        startAt: Option[KeyValue] = None,
+        startAt: Option[RV] = None,
         descending: Boolean = false,
     )(
         implicit
@@ -291,7 +291,7 @@ trait TableSyntax {
       rangeKeyPredicate.map(_.toPredicate(wr.value.name)),
       limit,
       tp.to(filterPredicate),
-      startAt.map(ck.primaryKey),
+      startAt.map(rv => ck.primaryKey(key -> rv)),
       index,
       fdv,
       descending
@@ -310,7 +310,7 @@ trait TableSyntax {
         rangeKeyPredicate: Option[FieldPredicate[RV]] = None,
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
-        startAt: Option[KeyValue] = None,
+        startAt: Option[RV] = None,
         descending: Boolean = false
     )(
         implicit
@@ -339,7 +339,7 @@ trait TableSyntax {
         rangeKeyPredicate: Option[FieldPredicate[RV]] = None,
         filterPredicate: F = HNil,
         limit: Option[Int] = None,
-        startAt: Option[KeyValue] = None,
+        startAt: Option[RV] = None,
         descending: Boolean = false
     )(
         implicit
